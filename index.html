@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -79,6 +78,26 @@
         .progress-box { width: 60%; height: 20px; border: 2px solid #fff; margin-top: 20px; padding: 2px; }
         #progress-fill { width: 0%; height: 100%; background: #4CAF50; transition: width 0.1s; }
         #error-log { color: #ff5555; margin-top: 20px; font-size: 14px; max-width: 80%; text-align: center; font-weight: bold;}
+
+        /* 桌面端开始提示（点击锁定鼠标） */
+        #desktop-hint {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.75); color: #fff; z-index: 500;
+            display: none; flex-direction: column; justify-content: center; align-items: center;
+            text-align: center; pointer-events: none; padding: 20px;
+        }
+        #desktop-hint h2 { margin: 0 0 14px; font-size: 26px; text-shadow: 1px 1px 0 #000; }
+        #desktop-hint p { margin: 4px 0; font-size: 14px; color: #ddd; text-shadow: 1px 1px 0 #000; }
+
+        /* 设备适配：桌面端隐藏触屏控件，移动端隐藏桌面提示 */
+        body.desktop #desktop-hint { display: flex; }
+        body.desktop #move-zone, body.desktop #look-zone,
+        body.desktop #btn-container, body.desktop #fly-controls { display: none !important; }
+        body.mobile #desktop-hint { display: none !important; }
+
+        /* 桌面端快捷栏可点击 */
+        body.desktop .slot { cursor: pointer; }
+        body.desktop .inv-slot { cursor: pointer; }
     </style>
     
     <!-- 替换为国内更稳定的 JSdelivr CDN 节点 -->
@@ -138,6 +157,14 @@
         <div class="inv-grid" id="inv-grid"></div>
     </div>
 
+    <!-- 桌面端提示层 -->
+    <div id="desktop-hint">
+        <h2>点击屏幕开始游戏</h2>
+        <p>WASD 移动 · 鼠标视角 · 空格跳跃 / 双击切换飞行 · Shift 下降</p>
+        <p>左键挖掘（按住连续） · 右键放置 · 滚轮或 1-8 切换物品 · E 背包</p>
+        <p style="margin-top:14px;color:#999;font-size:12px;">按 Esc 释放鼠标</p>
+    </div>
+
     <script>
         // ==========================================
         // 核心变量声明 (绝不在全局立刻调用 THREE 对象，防止断网崩溃)
@@ -154,6 +181,10 @@
             onGround: false, pitch: 0, yaw: 0, isFlying: true, flySpeed: 8.0
         };
         const input = { move: {x:0, y:0}, flyUp: false, flyDown: false };
+
+        // 设备识别：fine pointer 视为桌面端（键鼠），否则移动端（触屏）
+        const isDesktop = window.matchMedia('(pointer: fine)').matches;
+        document.body.classList.add(isDesktop ? 'desktop' : 'mobile');
 
         const Blocks = { AIR: 0, BEDROCK: 1, STONE: 2, DIRT: 3, GRASS: 4, WOOD: 5, LEAVES: 6, PLANKS: 7, GLASS: 8, COAL_ORE: 9, IRON_ORE: 10, DIAMOND_ORE: 11 };
         const BlockDefs = {
@@ -378,18 +409,19 @@
         function init3D() {
             renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('game-canvas'), antialias: false });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(1.0); 
+            renderer.setPixelRatio(isDesktop ? Math.min(window.devicePixelRatio, 2) : 1.0);
             renderer.setClearColor(0x87CEEB);
             scene = new THREE.Scene();
-            scene.fog = new THREE.Fog(0x87CEEB, 20, 60); 
-            camera = new THREE.PerspectiveCamera(85, window.innerWidth / window.innerHeight, 0.1, 100);
+            const fogFar = isDesktop ? 90 : 60;
+            scene.fog = new THREE.Fog(0x87CEEB, isDesktop ? 25 : 20, fogFar);
+            camera = new THREE.PerspectiveCamera(85, window.innerWidth / window.innerHeight, 0.1, fogFar + 10);
             camera.rotation.order = 'YXZ'; scene.add(camera);
             scene.add(new THREE.HemisphereLight(0xffffff, 0x555555, 0.8));
             const dirLight = new THREE.DirectionalLight(0xffffe0, 0.6);
             dirLight.position.set(WORLD_SIZE, WORLD_HEIGHT*2, WORLD_SIZE); scene.add(dirLight);
             targetHighlight = new THREE.LineSegments(new THREE.EdgesGeometry(boxGeo), new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 }));
             targetHighlight.visible = false; scene.add(targetHighlight);
-            window.addEventListener('resize', () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
+            window.addEventListener('resize', () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); renderer.setPixelRatio(isDesktop ? Math.min(window.devicePixelRatio, 2) : 1.0); });
         }
 
         function updateHotbarUI() {
@@ -406,10 +438,12 @@
                     }
                 } else { icon.style.backgroundColor = Tools[item].icon; icon.style.borderRadius = '50%'; }
                 slot.appendChild(icon);
-                slot.addEventListener('touchstart', () => {
+                const select = () => {
                     document.querySelectorAll('.slot').forEach(el => el.classList.remove('active'));
                     slot.classList.add('active'); selectedSlotIdx = index;
-                }, { passive: true });
+                };
+                slot.addEventListener('touchstart', select, { passive: true });
+                slot.addEventListener('click', select);
                 hotbarEl.appendChild(slot);
             });
         }
@@ -418,6 +452,7 @@
             const modal = document.getElementById('inventory-modal');
             if (modal.style.display === 'flex') modal.style.display = 'none';
             else {
+                if (isDesktop && document.pointerLockElement) document.exitPointerLock();
                 modal.style.display = 'flex'; const grid = document.getElementById('inv-grid'); grid.innerHTML = '';
                 Object.keys(inventory.items).forEach(id => {
                     const div = document.createElement('div'); div.className = 'inv-slot'; div.style.backgroundColor = BlockDefs[id].color;
@@ -435,7 +470,11 @@
 
         let miningTimer = null, mineProgress = 0, currentHit = null;
 
+        let lastJumpTap = 0;
+        const desktopInput = { keys: {}, mouseLeft: false };
+
         function setupControls() {
+            // 公共按钮（双端通用）
             document.getElementById('mode-btn').addEventListener('click', () => {
                 gameMode = gameMode === 'creative' ? 'survival' : 'creative';
                 document.getElementById('mode-btn').innerText = `模式: ${gameMode === 'creative' ? '创造' : '生存'}`;
@@ -444,12 +483,17 @@
             });
             document.getElementById('bag-btn').addEventListener('click', toggleInventory);
             document.getElementById('close-bag').addEventListener('click', toggleInventory);
+
+            if (isDesktop) { setupDesktopControls(); return; }
+            setupMobileControls();
+        }
+
+        function setupMobileControls() {
             document.getElementById('fly-up-btn').addEventListener('touchstart', () => input.flyUp = true, {passive:true});
             document.getElementById('fly-up-btn').addEventListener('touchend', () => input.flyUp = false, {passive:true});
             document.getElementById('fly-down-btn').addEventListener('touchstart', () => input.flyDown = true, {passive:true});
             document.getElementById('fly-down-btn').addEventListener('touchend', () => input.flyDown = false, {passive:true});
 
-            let lastJumpTap = 0;
             document.getElementById('jump-btn').addEventListener('touchstart', () => {
                 const now = performance.now();
                 if (gameMode === 'creative' && now - lastJumpTap < 300) { player.isFlying = !player.isFlying; document.getElementById('fly-controls').style.display = player.isFlying ? 'flex' : 'none'; }
@@ -476,6 +520,85 @@
             btnMine.addEventListener('touchend', stopMining, {passive:true});
             btnMine.addEventListener('touchcancel', stopMining, {passive:true});
             document.getElementById('place-btn').addEventListener('touchstart', doPlace, {passive:true});
+        }
+
+        function setupDesktopControls() {
+            const canvas = document.getElementById('game-canvas');
+            const hint = document.getElementById('desktop-hint');
+
+            // 点击锁定指针
+            canvas.addEventListener('click', () => {
+                if (document.pointerLockElement !== canvas) canvas.requestPointerLock();
+            });
+            document.addEventListener('pointerlockchange', () => {
+                const locked = document.pointerLockElement === canvas;
+                hint.style.display = locked ? 'none' : 'flex';
+                if (!locked) { desktopInput.mouseLeft = false; stopMining(); }
+            });
+
+            // 鼠标视角
+            document.addEventListener('mousemove', (e) => {
+                if (document.pointerLockElement !== canvas) return;
+                player.yaw -= e.movementX * 0.0025;
+                player.pitch -= e.movementY * 0.0025;
+                player.pitch = Math.max(-Math.PI/2.1, Math.min(Math.PI/2.1, player.pitch));
+            });
+
+            // 键盘
+            document.addEventListener('keydown', (e) => {
+                desktopInput.keys[e.code] = true;
+                if (e.code === 'KeyE') { e.preventDefault(); toggleInventory(); return; }
+                if (e.code.startsWith('Digit')) {
+                    const n = parseInt(e.code.slice(5)) - 1;
+                    if (n >= 0 && n < hotbarSlots.length) { selectedSlotIdx = n; updateHotbarUI(); }
+                }
+                if (e.code === 'Space') {
+                    e.preventDefault();
+                    if (!e.repeat) {
+                        const now = performance.now();
+                        if (gameMode === 'creative' && now - lastJumpTap < 300) player.isFlying = !player.isFlying;
+                        lastJumpTap = now;
+                    }
+                    if (!player.isFlying) player.jumpBuffer = 0.2;
+                }
+            });
+            document.addEventListener('keyup', (e) => { desktopInput.keys[e.code] = false; });
+
+            // 鼠标按键：左键挖掘（按住连续），右键放置
+            canvas.addEventListener('mousedown', (e) => {
+                if (document.pointerLockElement !== canvas) return;
+                if (e.button === 0) { desktopInput.mouseLeft = true; startMining(); }
+                else if (e.button === 2) { doPlace(); }
+            });
+            document.addEventListener('mouseup', (e) => {
+                if (e.button === 0) { desktopInput.mouseLeft = false; stopMining(); }
+            });
+            canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+            // 滚轮切换快捷栏
+            document.addEventListener('wheel', (e) => {
+                if (document.pointerLockElement !== canvas) return;
+                if (e.deltaY > 0) selectedSlotIdx = (selectedSlotIdx + 1) % hotbarSlots.length;
+                else selectedSlotIdx = (selectedSlotIdx - 1 + hotbarSlots.length) % hotbarSlots.length;
+                updateHotbarUI();
+            }, {passive:true});
+        }
+
+        // 将桌面端键鼠状态同步到 input
+        function updateDesktopInput() {
+            if (!isDesktop) return;
+            const invOpen = document.getElementById('inventory-modal').style.display === 'flex';
+            const locked = document.pointerLockElement === document.getElementById('game-canvas');
+            if (!locked || invOpen) { input.move.x = 0; input.move.y = 0; input.flyUp = false; input.flyDown = false; return; }
+            const k = desktopInput.keys;
+            let x = 0, y = 0;
+            if (k['KeyW']) y += 1;
+            if (k['KeyS']) y -= 1;
+            if (k['KeyA']) x -= 1;
+            if (k['KeyD']) x += 1;
+            input.move.x = x; input.move.y = y;
+            input.flyUp = !!k['Space'] && player.isFlying;
+            input.flyDown = (!!k['ShiftLeft'] || !!k['ShiftRight']) && player.isFlying;
         }
 
         function raycast() {
@@ -511,7 +634,7 @@
                 miningTimer = setTimeout(updateMine, 50);
             }
         }
-        function stopMining() { if (miningTimer) clearTimeout(miningTimer); document.getElementById('mine-progress').style.display = 'none'; }
+        function stopMining() { if (miningTimer) { clearTimeout(miningTimer); miningTimer = null; } document.getElementById('mine-progress').style.display = 'none'; }
         function breakBlock() {
             if (!currentHit || currentHit.id === Blocks.BEDROCK) return;
             let id = currentHit.id; updateBlock(currentHit.pos.x, currentHit.pos.y, currentHit.pos.z, Blocks.AIR);
@@ -573,12 +696,15 @@
             frames++; if (t > lastFps + 1000) { document.getElementById('fps').innerText = frames; frames = 0; lastFps = t; }
             document.getElementById('coords').innerText = `${Math.floor(camera.position.x)}, ${Math.floor(camera.position.y)}, ${Math.floor(camera.position.z)}`;
             camera.rotation.set(player.pitch, player.yaw, 0);
+            updateDesktopInput();
             updatePhysics(dt);
             let hit = raycast();
             if (hit) {
                 if (!currentHit || !hit.pos.equals(currentHit.pos)) { stopMining(); currentHit = hit; }
                 targetHighlight.position.copy(hit.pos); targetHighlight.visible = true;
             } else { if (currentHit) stopMining(); currentHit = null; targetHighlight.visible = false; }
+            // 桌面端按住左键时，对准新方块自动继续挖掘
+            if (isDesktop && desktopInput.mouseLeft && currentHit && !miningTimer) startMining();
             renderer.render(scene, camera);
         }
 
@@ -631,5 +757,3 @@
     </script>
 </body>
 </html>
-
-```
