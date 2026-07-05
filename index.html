@@ -3,25 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#0A0A0F">
+    <meta name="theme-color" content="#06060E">
     <title>WebGames Hub</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-root: #0A0A0F;
-            --bg-elevated: rgba(255, 255, 255, 0.03);
-            --glass-bg: rgba(255, 255, 255, 0.04);
+            --bg-root: #06060E;
+            --glass-bg: rgba(15, 15, 30, 0.5);
             --glass-border: rgba(255, 255, 255, 0.06);
-            --glass-border-hover: rgba(255, 255, 255, 0.12);
-            --accent-blue: #3B82F6;
-            --accent-cyan: #06B6D4;
-            --accent-purple: #8B5CF6;
+            --glass-border-hover: rgba(255, 255, 255, 0.14);
             --text-primary: #F8FAFC;
             --text-secondary: #94A3B8;
             --font-display: 'Plus Jakarta Sans', system-ui, sans-serif;
             --font-body: 'Inter', system-ui, sans-serif;
+            --iridescent-1: #6366F1;
+            --iridescent-2: #06B6D4;
+            --iridescent-3: #A855F7;
+            --iridescent-4: #F43F5E;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -49,40 +49,62 @@
             overflow: hidden;
         }
 
-        .ambient-orb {
+        .ambient-blob {
             position: absolute;
             border-radius: 50%;
-            filter: blur(120px);
-            opacity: 0.12;
-            animation: orb-drift 20s ease-in-out infinite;
+            filter: blur(140px);
+            opacity: 0.11;
+            animation: blob-morph 18s ease-in-out infinite;
         }
 
-        .ambient-orb:nth-child(1) {
-            width: 600px; height: 600px;
-            background: var(--accent-blue);
-            top: -20%; left: -15%;
+        .ambient-blob:nth-child(1) {
+            width: 700px; height: 700px;
+            background: var(--iridescent-1);
+            top: -25%; left: -20%;
             animation-delay: 0s;
         }
 
-        .ambient-orb:nth-child(2) {
-            width: 500px; height: 500px;
-            background: var(--accent-purple);
-            bottom: -15%; right: -10%;
-            animation-delay: -7s;
+        .ambient-blob:nth-child(2) {
+            width: 550px; height: 550px;
+            background: var(--iridescent-2);
+            bottom: -20%; right: -15%;
+            animation-delay: -6s;
+            animation-duration: 22s;
         }
 
-        .ambient-orb:nth-child(3) {
-            width: 400px; height: 400px;
-            background: var(--accent-cyan);
-            top: 40%; left: 50%;
-            animation-delay: -14s;
+        .ambient-blob:nth-child(3) {
+            width: 450px; height: 450px;
+            background: var(--iridescent-3);
+            top: 50%; left: 55%;
+            animation-delay: -12s;
+            animation-duration: 20s;
         }
 
-        @keyframes orb-drift {
-            0%, 100% { transform: translate(0, 0) scale(1); }
-            25%  { transform: translate(5%, -3%) scale(1.08); }
-            50%  { transform: translate(-2%, 4%) scale(0.94); }
-            75%  { transform: translate(-4%, -2%) scale(1.05); }
+        .ambient-blob:nth-child(4) {
+            width: 300px; height: 300px;
+            background: var(--iridescent-4);
+            top: 10%; right: 20%;
+            animation-delay: -3s;
+            animation-duration: 24s;
+            opacity: 0.07;
+        }
+
+        @keyframes blob-morph {
+            0%, 100% { transform: translate(0, 0) scale(1); border-radius: 50% 50% 50% 50%; }
+            20%  { border-radius: 45% 55% 60% 40%; }
+            40%  { transform: translate(6%, -4%) scale(1.1); border-radius: 55% 45% 35% 65%; }
+            60%  { transform: translate(-3%, 5%) scale(0.92); border-radius: 40% 60% 55% 45%; }
+            80%  { border-radius: 60% 40% 45% 55%; }
+        }
+
+        .grain {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 100;
+            opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+            background-size: 200px 200px;
         }
 
         .container {
@@ -90,34 +112,55 @@
             z-index: 1;
             text-align: center;
             padding: 2rem;
-            max-width: 900px;
+            max-width: 920px;
             width: 100%;
         }
 
         .header {
-            margin-bottom: 3rem;
+            margin-bottom: 2.5rem;
         }
 
         .logo-mark {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 56px;
-            height: 56px;
-            border-radius: 14px;
+            width: 60px;
+            height: 60px;
+            border-radius: 16px;
             background: var(--glass-bg);
             border: 1px solid var(--glass-border);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+            backdrop-filter: blur(30px) saturate(180%);
+            -webkit-backdrop-filter: blur(30px) saturate(180%);
             margin-bottom: 1.25rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .logo-mark::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg,
+                rgba(99, 102, 241, 0.15),
+                rgba(6, 182, 212, 0.15),
+                rgba(168, 85, 247, 0.15));
+            animation: logo-shimmer 4s ease-in-out infinite;
+        }
+
+        @keyframes logo-shimmer {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
         }
 
         .logo-mark svg {
+            position: relative;
+            z-index: 1;
             width: 28px;
             height: 28px;
-            stroke: var(--accent-cyan);
+            stroke: var(--iridescent-2);
             fill: none;
             stroke-width: 2;
+            filter: drop-shadow(0 0 6px rgba(6, 182, 212, 0.3));
         }
 
         .title {
@@ -130,18 +173,25 @@
         }
 
         .title-accent {
-            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+            background: linear-gradient(135deg, var(--iridescent-1), var(--iridescent-2), var(--iridescent-3));
+            background-size: 200% 200%;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
+            animation: gradient-shift 6s ease-in-out infinite;
+        }
+
+        @keyframes gradient-shift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
         }
 
         .subtitle {
             font-family: var(--font-body);
-            font-size: 0.9rem;
+            font-size: 0.88rem;
             color: var(--text-secondary);
-            letter-spacing: 0.04em;
-            margin-top: 0.75rem;
+            letter-spacing: 0.05em;
+            margin-top: 0.6rem;
             font-weight: 400;
         }
 
@@ -157,79 +207,128 @@
             flex-direction: column;
             align-items: flex-start;
             text-align: left;
-            background: var(--glass-bg);
+            background: linear-gradient(135deg,
+                rgba(255, 255, 255, 0.03),
+                rgba(255, 255, 255, 0.01));
             border: 1px solid var(--glass-border);
-            border-radius: 20px;
-            padding: 2rem 1.75rem;
+            border-radius: 22px;
+            padding: 1.75rem;
             cursor: pointer;
             text-decoration: none;
             color: inherit;
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            transition: border-color 250ms ease, box-shadow 250ms ease, transform 250ms ease;
+            backdrop-filter: blur(30px) saturate(180%);
+            -webkit-backdrop-filter: blur(30px) saturate(180%);
+            transition: border-color 350ms ease, box-shadow 350ms ease, transform 350ms ease;
             outline: none;
             -webkit-tap-highlight-color: transparent;
             touch-action: manipulation;
             user-select: none;
             -webkit-user-select: none;
+            overflow: hidden;
         }
 
-        .game-card:hover {
-            border-color: var(--glass-border-hover);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3);
+        .game-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 22px;
+            padding: 1.5px;
+            background: linear-gradient(135deg,
+                rgba(255, 255, 255, 0.12),
+                transparent 40%,
+                transparent 60%,
+                rgba(255, 255, 255, 0.06));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+        }
+
+        .game-card::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            border-radius: 22px;
+            opacity: 0;
+            transition: opacity 400ms ease;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .game-card.geometrydash::after {
+            background: radial-gradient(ellipse at top left,
+                rgba(6, 182, 212, 0.08),
+                transparent 60%);
+        }
+
+        .game-card.webcraft::after {
+            background: radial-gradient(ellipse at top left,
+                rgba(168, 85, 247, 0.08),
+                transparent 60%);
+        }
+
+        .game-card:hover { border-color: var(--glass-border-hover); transform: translateY(-2px); }
+        .game-card:hover::after { opacity: 1; }
+
+        .game-card.geometrydash:hover {
+            box-shadow: 0 0 60px rgba(6, 182, 212, 0.06), 0 12px 48px rgba(0, 0, 0, 0.3);
+        }
+
+        .game-card.webcraft:hover {
+            box-shadow: 0 0 60px rgba(168, 85, 247, 0.06), 0 12px 48px rgba(0, 0, 0, 0.3);
         }
 
         .game-card:focus-visible {
-            border-color: var(--accent-blue);
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.35);
+            border-color: rgba(99, 102, 241, 0.5);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
         }
 
-        .game-card:active {
-            transform: scale(0.985);
-            transition: transform 80ms ease;
-        }
+        .game-card:active { transform: scale(0.985); transition: transform 100ms ease; }
 
-        .game-card-accent {
-            width: 40px;
-            height: 4px;
-            border-radius: 2px;
-            margin-bottom: 1.25rem;
-        }
-
-        .game-card.geometrydash .game-card-accent {
-            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
-        }
-
-        .game-card.webcraft .game-card-accent {
-            background: linear-gradient(90deg, var(--accent-purple), #A78BFA);
-        }
+        .game-card-inner { position: relative; z-index: 1; width: 100%; }
 
         .game-icon-row {
             display: flex;
             align-items: center;
             gap: 0.75rem;
-            margin-bottom: 0.75rem;
+            margin-bottom: 0.85rem;
         }
 
         .game-icon {
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 44px;
-            height: 44px;
-            border-radius: 12px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--glass-border);
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            position: relative;
         }
 
-        .game-icon svg {
-            width: 22px;
-            height: 22px;
+        .game-icon svg { width: 22px; height: 22px; position: relative; z-index: 1; }
+        .game-card.geometrydash .game-icon svg { color: var(--iridescent-2); }
+        .game-card.webcraft .game-icon svg { color: var(--iridescent-3); }
+
+        .game-icon::before {
+            content: '';
+            position: absolute;
+            inset: -4px;
+            border-radius: 18px;
+            opacity: 0;
+            transition: opacity 350ms ease;
+            pointer-events: none;
         }
 
-        .game-card.geometrydash .game-icon svg { color: var(--accent-cyan); }
-        .game-card.webcraft .game-icon svg { color: var(--accent-purple); }
+        .game-card.geometrydash:hover .game-icon::before {
+            background: radial-gradient(circle, rgba(6, 182, 212, 0.1), transparent);
+            opacity: 1;
+        }
+
+        .game-card.webcraft:hover .game-icon::before {
+            background: radial-gradient(circle, rgba(168, 85, 247, 0.1), transparent);
+            opacity: 1;
+        }
 
         .game-title {
             font-family: var(--font-display);
@@ -243,76 +342,85 @@
             font-size: 0.8rem;
             color: var(--text-secondary);
             line-height: 1.55;
-            margin-bottom: 1.25rem;
+            margin-bottom: 1rem;
         }
 
-        .game-meta {
+        .game-tags {
             display: flex;
-            gap: 0.5rem;
+            gap: 0.45rem;
             flex-wrap: wrap;
         }
 
         .game-badge {
             font-family: var(--font-body);
-            font-size: 0.7rem;
+            font-size: 0.68rem;
             font-weight: 500;
-            padding: 0.3rem 0.65rem;
+            padding: 0.3rem 0.6rem;
             border-radius: 6px;
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid var(--glass-border);
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
             color: var(--text-secondary);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
         }
 
         .game-arrow {
-            margin-top: 1.25rem;
+            margin-top: 1.15rem;
             display: flex;
             align-items: center;
-            gap: 0.4rem;
+            gap: 0.35rem;
             font-family: var(--font-body);
-            font-size: 0.8rem;
+            font-size: 0.78rem;
             font-weight: 500;
             color: var(--text-secondary);
             opacity: 0;
-            transform: translateX(-4px);
-            transition: opacity 250ms ease, transform 250ms ease;
+            transform: translateX(-6px);
+            transition: opacity 350ms ease, transform 350ms ease, color 350ms ease;
         }
 
         .game-card:hover .game-arrow { opacity: 1; transform: translateX(0); }
-        .game-card.geometrydash:hover .game-arrow { color: var(--accent-cyan); }
-        .game-card.webcraft:hover .game-arrow { color: var(--accent-purple); }
+        .game-card.geometrydash:hover .game-arrow { color: var(--iridescent-2); }
+        .game-card.webcraft:hover .game-arrow { color: var(--iridescent-3); }
 
         .game-arrow svg { width: 14px; height: 14px; }
 
         .footer {
             font-family: var(--font-body);
             font-size: 0.7rem;
-            color: rgba(148, 163, 184, 0.25);
+            color: rgba(148, 163, 184, 0.2);
             margin-top: 3rem;
-            letter-spacing: 0.06em;
+            letter-spacing: 0.08em;
         }
 
         @media (prefers-reduced-motion: reduce) {
             .ambient { display: none; }
+            .grain { display: none; }
             .game-card { transition: none; }
             .game-card:hover { transform: none; }
             .game-arrow { transition: none; }
             .game-card:active { transform: none; }
+            .logo-mark::before { animation: none; }
+            .title-accent { animation: none; }
         }
 
         @media (max-width: 640px) {
             .container { padding: 1.25rem; }
             .games { grid-template-columns: 1fr; gap: 1rem; }
-            .game-card { padding: 1.5rem 1.25rem; border-radius: 16px; }
+            .game-card { padding: 1.5rem 1.25rem; border-radius: 18px; }
+            .game-card::before { border-radius: 18px; }
+            .game-card::after { border-radius: 18px; }
             .header { margin-bottom: 2rem; }
         }
     </style>
 </head>
 <body>
     <div class="ambient" aria-hidden="true">
-        <div class="ambient-orb"></div>
-        <div class="ambient-orb"></div>
-        <div class="ambient-orb"></div>
+        <div class="ambient-blob"></div>
+        <div class="ambient-blob"></div>
+        <div class="ambient-blob"></div>
+        <div class="ambient-blob"></div>
     </div>
+    <div class="grain" aria-hidden="true"></div>
 
     <main class="container">
         <header class="header">
@@ -333,52 +441,54 @@
             <a href="Geometrydash.html"
                class="game-card geometrydash"
                aria-label="开始 Geometry Dash - Neon Edition 节奏平台跳跃游戏">
-                <div class="game-card-accent"></div>
-                <div class="game-icon-row">
-                    <div class="game-icon">
+                <div class="game-card-inner">
+                    <div class="game-icon-row">
+                        <div class="game-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                            </svg>
+                        </div>
+                        <div class="game-title">Geometry Dash</div>
+                    </div>
+                    <div class="game-desc">Neon Edition — 节奏平台跳跃，跟随电音律动穿越霓虹障碍</div>
+                    <div class="game-tags">
+                        <span class="game-badge">节奏游戏</span>
+                        <span class="game-badge">平台跳跃</span>
+                    </div>
+                    <div class="game-arrow">
+                        进入游戏
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
                         </svg>
                     </div>
-                    <div class="game-title">Geometry Dash</div>
-                </div>
-                <div class="game-desc">Neon Edition — 节奏平台跳跃，跟随电音律动穿越霓虹障碍</div>
-                <div class="game-meta">
-                    <span class="game-badge">节奏游戏</span>
-                    <span class="game-badge">平台跳跃</span>
-                </div>
-                <div class="game-arrow">
-                    进入游戏
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M5 12h14M12 5l7 7-7 7"/>
-                    </svg>
                 </div>
             </a>
 
             <a href="webmc.html"
                class="game-card webcraft"
                aria-label="开始 Hotsteel's Webcraft - Ultimate 体素沙盒世界">
-                <div class="game-card-accent"></div>
-                <div class="game-icon-row">
-                    <div class="game-icon">
+                <div class="game-card-inner">
+                    <div class="game-icon-row">
+                        <div class="game-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                                <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                                <line x1="12" y1="22.08" x2="12" y2="12"/>
+                            </svg>
+                        </div>
+                        <div class="game-title">Webcraft</div>
+                    </div>
+                    <div class="game-desc">Ultimate — 体素沙盒世界，自由挖掘与建造</div>
+                    <div class="game-tags">
+                        <span class="game-badge">体素沙盒</span>
+                        <span class="game-badge">3D 建造</span>
+                    </div>
+                    <div class="game-arrow">
+                        进入游戏
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-                            <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
-                            <line x1="12" y1="22.08" x2="12" y2="12"/>
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
                         </svg>
                     </div>
-                    <div class="game-title">Webcraft</div>
-                </div>
-                <div class="game-desc">Ultimate — 体素沙盒世界，自由挖掘与建造</div>
-                <div class="game-meta">
-                    <span class="game-badge">体素沙盒</span>
-                    <span class="game-badge">3D 建造</span>
-                </div>
-                <div class="game-arrow">
-                    进入游戏
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M5 12h14M12 5l7 7-7 7"/>
-                    </svg>
                 </div>
             </a>
         </div>
@@ -406,58 +516,47 @@
                 var gain = ctx.createGain();
                 osc.connect(gain);
                 gain.connect(ctx.destination);
-
                 osc.type = 'sine';
-                osc.frequency.setValueAtTime(600, ctx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(900, ctx.currentTime + 0.05);
-
-                gain.gain.setValueAtTime(0.025, ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
-
+                osc.frequency.setValueAtTime(500, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(700, ctx.currentTime + 0.04);
+                gain.gain.setValueAtTime(0.02, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
                 osc.start(ctx.currentTime);
-                osc.stop(ctx.currentTime + 0.06);
+                osc.stop(ctx.currentTime + 0.05);
             }
 
             function playClick(cardEl) {
                 var ctx = getCtx();
                 var now = ctx.currentTime;
+                var isGD = cardEl.classList.contains('geometrydash');
 
                 var osc1 = ctx.createOscillator();
                 var osc2 = ctx.createOscillator();
                 var gain1 = ctx.createGain();
                 var gain2 = ctx.createGain();
+                osc1.connect(gain1); gain1.connect(ctx.destination);
+                osc2.connect(gain2); gain2.connect(ctx.destination);
 
-                osc1.connect(gain1);
-                gain1.connect(ctx.destination);
-                osc2.connect(gain2);
-                gain2.connect(ctx.destination);
-
-                var isGD = cardEl.classList.contains('geometrydash');
-                var freq1 = isGD ? 800 : 600;
-                var freq2 = isGD ? 1400 : 1100;
+                var f1 = isGD ? 660 : 520;
+                var f2 = isGD ? 1100 : 880;
 
                 osc1.type = 'sine';
-                osc1.frequency.setValueAtTime(freq1, now);
-                osc1.frequency.exponentialRampToValueAtTime(freq1 * 1.4, now + 0.15);
-
-                gain1.gain.setValueAtTime(0.05, now);
-                gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+                osc1.frequency.setValueAtTime(f1, now);
+                osc1.frequency.exponentialRampToValueAtTime(f1 * 1.5, now + 0.2);
+                gain1.gain.setValueAtTime(0.04, now);
+                gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
 
                 osc2.type = 'sine';
-                osc2.frequency.setValueAtTime(freq2, now + 0.04);
-                osc2.frequency.exponentialRampToValueAtTime(freq2 * 0.6, now + 0.15);
+                osc2.frequency.setValueAtTime(f2, now + 0.05);
+                osc2.frequency.exponentialRampToValueAtTime(f2 * 0.5, now + 0.15);
+                gain2.gain.setValueAtTime(0.03, now + 0.05);
+                gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
 
-                gain2.gain.setValueAtTime(0.035, now + 0.04);
-                gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-
-                osc1.start(now);
-                osc1.stop(now + 0.2);
-                osc2.start(now + 0.04);
-                osc2.stop(now + 0.15);
+                osc1.start(now); osc1.stop(now + 0.25);
+                osc2.start(now + 0.05); osc2.stop(now + 0.2);
             }
 
             var cards = document.querySelectorAll('.game-card');
-
             for (var i = 0; i < cards.length; i++) {
                 (function(card) {
                     card.addEventListener('mouseenter', function() { playHover(); });
