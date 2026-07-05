@@ -3,22 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#0F0F23">
+    <meta name="theme-color" content="#0A0A0F">
     <title>WebGames Hub</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-deep: #0F0F23;
-            --bg-surface: #1A1A3A;
-            --neon-cyan: #00FFCC;
-            --neon-purple: #A855F7;
-            --neon-rose: #F43F5E;
-            --text-primary: #E2E8F0;
+            --bg-root: #0A0A0F;
+            --bg-elevated: rgba(255, 255, 255, 0.03);
+            --glass-bg: rgba(255, 255, 255, 0.04);
+            --glass-border: rgba(255, 255, 255, 0.06);
+            --glass-border-hover: rgba(255, 255, 255, 0.12);
+            --accent-blue: #3B82F6;
+            --accent-cyan: #06B6D4;
+            --accent-purple: #8B5CF6;
+            --text-primary: #F8FAFC;
             --text-secondary: #94A3B8;
-            --font-display: 'Orbitron', system-ui, sans-serif;
-            --font-mono: 'JetBrains Mono', monospace;
+            --font-display: 'Plus Jakarta Sans', system-ui, sans-serif;
+            --font-body: 'Inter', system-ui, sans-serif;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -26,30 +29,19 @@
         html { color-scheme: dark; }
 
         body {
-            font-family: var(--font-display);
-            background: var(--bg-deep);
+            font-family: var(--font-body);
+            background: var(--bg-root);
             color: var(--text-primary);
-            min-height: 100vh;
+            min-height: 100svh;
             display: flex;
             align-items: center;
             justify-content: center;
             overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
-        body::before {
-            content: '';
-            position: fixed;
-            inset: 0;
-            pointer-events: none;
-            z-index: 100;
-            background: repeating-linear-gradient(0deg,
-                transparent,
-                transparent 2px,
-                rgba(0,0,0,0.03) 2px,
-                rgba(0,0,0,0.03) 4px);
-        }
-
-        .particles {
+        .ambient {
             position: fixed;
             inset: 0;
             pointer-events: none;
@@ -57,31 +49,40 @@
             overflow: hidden;
         }
 
-        .particle {
+        .ambient-orb {
             position: absolute;
-            width: 2px;
-            height: 2px;
-            background: var(--neon-cyan);
             border-radius: 50%;
-            animation: float-up linear infinite;
-            opacity: 0;
+            filter: blur(120px);
+            opacity: 0.12;
+            animation: orb-drift 20s ease-in-out infinite;
         }
 
-        .particle:nth-child(odd) { background: var(--neon-purple); }
-        .particle:nth-child(3n) { background: var(--neon-rose); }
-        .particle:nth-child(2) { animation-duration: 6s; animation-delay: 1s; left: 20%; }
-        .particle:nth-child(3) { animation-duration: 8s; animation-delay: 2s; left: 40%; }
-        .particle:nth-child(4) { animation-duration: 5s; animation-delay: 0.5s; left: 60%; }
-        .particle:nth-child(5) { animation-duration: 7s; animation-delay: 3s; left: 80%; }
-        .particle:nth-child(6) { animation-duration: 9s; animation-delay: 1.5s; left: 10%; }
-        .particle:nth-child(7) { animation-duration: 6.5s; animation-delay: 2.5s; left: 70%; }
-        .particle:nth-child(8) { animation-duration: 7.5s; animation-delay: 0.8s; left: 30%; }
+        .ambient-orb:nth-child(1) {
+            width: 600px; height: 600px;
+            background: var(--accent-blue);
+            top: -20%; left: -15%;
+            animation-delay: 0s;
+        }
 
-        @keyframes float-up {
-            0%   { transform: translateY(100vh) scale(0); opacity: 0; }
-            10%  { opacity: 0.6; }
-            90%  { opacity: 0.6; }
-            100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+        .ambient-orb:nth-child(2) {
+            width: 500px; height: 500px;
+            background: var(--accent-purple);
+            bottom: -15%; right: -10%;
+            animation-delay: -7s;
+        }
+
+        .ambient-orb:nth-child(3) {
+            width: 400px; height: 400px;
+            background: var(--accent-cyan);
+            top: 40%; left: 50%;
+            animation-delay: -14s;
+        }
+
+        @keyframes orb-drift {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            25%  { transform: translate(5%, -3%) scale(1.08); }
+            50%  { transform: translate(-2%, 4%) scale(0.94); }
+            75%  { transform: translate(-4%, -2%) scale(1.05); }
         }
 
         .container {
@@ -93,68 +94,79 @@
             width: 100%;
         }
 
-        .logo {
-            margin-bottom: 0.75rem;
+        .header {
+            margin-bottom: 3rem;
         }
 
-        .logo-icon {
-            display: inline-block;
-            width: 64px;
-            height: 64px;
-            border: 3px solid var(--neon-cyan);
-            border-radius: 16px;
-            position: relative;
-            box-shadow: 0 0 20px rgba(0,255,204,0.3), inset 0 0 20px rgba(0,255,204,0.1);
-            margin-bottom: 1rem;
+        .logo-mark {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 56px;
+            height: 56px;
+            border-radius: 14px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            margin-bottom: 1.25rem;
         }
 
-        .logo-icon::after {
-            content: '';
-            position: absolute;
-            inset: 6px;
-            border: 2px solid var(--neon-purple);
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(168,85,247,0.4);
+        .logo-mark svg {
+            width: 28px;
+            height: 28px;
+            stroke: var(--accent-cyan);
+            fill: none;
+            stroke-width: 2;
         }
 
         .title {
             font-family: var(--font-display);
-            font-size: clamp(2rem, 5vw, 3.5rem);
-            font-weight: 900;
-            letter-spacing: 0.15em;
+            font-size: clamp(2.5rem, 6vw, 4rem);
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            line-height: 1.1;
             color: var(--text-primary);
-            text-shadow:
-                0 0 10px rgba(0,255,204,0.4),
-                0 0 40px rgba(0,255,204,0.15);
-            line-height: 1.2;
+        }
+
+        .title-accent {
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
 
         .subtitle {
-            font-family: var(--font-mono);
-            font-size: 0.85rem;
+            font-family: var(--font-body);
+            font-size: 0.9rem;
             color: var(--text-secondary);
-            letter-spacing: 0.25em;
+            letter-spacing: 0.04em;
             margin-top: 0.75rem;
-            margin-bottom: 3rem;
+            font-weight: 400;
         }
 
         .games {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1.5rem;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.25rem;
         }
 
         .game-card {
             position: relative;
-            display: block;
-            background: var(--bg-surface);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 16px;
-            padding: 2rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            text-align: left;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2rem 1.75rem;
             cursor: pointer;
             text-decoration: none;
             color: inherit;
-            transition: transform 200ms ease-out, border-color 200ms ease-out, box-shadow 200ms ease-out;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            transition: border-color 250ms ease, box-shadow 250ms ease, transform 250ms ease;
             outline: none;
             -webkit-tap-highlight-color: transparent;
             touch-action: manipulation;
@@ -163,187 +175,215 @@
         }
 
         .game-card:hover {
-            transform: translateY(-4px);
+            border-color: var(--glass-border-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3);
         }
 
         .game-card:focus-visible {
-            box-shadow: 0 0 0 3px var(--neon-cyan);
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.35);
         }
 
-        .game-card::before {
-            content: '';
-            position: absolute;
-            inset: -1px;
-            border-radius: 17px;
-            padding: 2px;
-            background: linear-gradient(135deg, var(--card-glow-from), var(--card-glow-to));
-            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            -webkit-mask-composite: xor;
-            mask-composite: exclude;
-            opacity: 0.5;
-            transition: opacity 200ms ease-out;
+        .game-card:active {
+            transform: scale(0.985);
+            transition: transform 80ms ease;
         }
 
-        .game-card:hover::before { opacity: 1; }
-
-        .game-card.geometrydash {
-            --card-glow-from: var(--neon-cyan);
-            --card-glow-to: rgba(0,255,204,0.1);
+        .game-card-accent {
+            width: 40px;
+            height: 4px;
+            border-radius: 2px;
+            margin-bottom: 1.25rem;
         }
 
-        .game-card.geometrydash:hover {
-            border-color: rgba(0,255,204,0.3);
-            box-shadow: 0 0 30px rgba(0,255,204,0.15), 0 8px 32px rgba(0,0,0,0.3);
+        .game-card.geometrydash .game-card-accent {
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
         }
 
-        .game-card.webcraft {
-            --card-glow-from: var(--neon-purple);
-            --card-glow-to: rgba(168,85,247,0.1);
+        .game-card.webcraft .game-card-accent {
+            background: linear-gradient(90deg, var(--accent-purple), #A78BFA);
         }
 
-        .game-card.webcraft:hover {
-            border-color: rgba(168,85,247,0.3);
-            box-shadow: 0 0 30px rgba(168,85,247,0.15), 0 8px 32px rgba(0,0,0,0.3);
+        .game-icon-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
         }
 
         .game-icon {
-            font-size: 2.5rem;
-            margin-bottom: 1rem;
-            display: block;
-            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
         }
+
+        .game-icon svg {
+            width: 22px;
+            height: 22px;
+        }
+
+        .game-card.geometrydash .game-icon svg { color: var(--accent-cyan); }
+        .game-card.webcraft .game-icon svg { color: var(--accent-purple); }
 
         .game-title {
             font-family: var(--font-display);
             font-size: 1.15rem;
             font-weight: 700;
-            letter-spacing: 0.08em;
-            margin-bottom: 0.5rem;
+            letter-spacing: -0.01em;
         }
 
-        .game-card.geometrydash .game-title { color: var(--neon-cyan); }
-        .game-card.webcraft .game-title { color: var(--neon-purple); }
-
         .game-desc {
-            font-family: var(--font-mono);
-            font-size: 0.75rem;
+            font-family: var(--font-body);
+            font-size: 0.8rem;
             color: var(--text-secondary);
-            letter-spacing: 0.05em;
-            line-height: 1.5;
+            line-height: 1.55;
+            margin-bottom: 1.25rem;
+        }
+
+        .game-meta {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
         }
 
         .game-badge {
-            display: inline-block;
-            font-family: var(--font-mono);
-            font-size: 0.65rem;
-            letter-spacing: 0.1em;
-            padding: 0.25rem 0.75rem;
-            border-radius: 99px;
-            margin-top: 1rem;
-            border: 1px solid;
-        }
-
-        .game-card.geometrydash .game-badge {
-            color: var(--neon-cyan);
-            border-color: rgba(0,255,204,0.3);
-        }
-
-        .game-card.webcraft .game-badge {
-            color: var(--neon-purple);
-            border-color: rgba(168,85,247,0.3);
-        }
-
-        .click-hint {
-            font-family: var(--font-mono);
+            font-family: var(--font-body);
             font-size: 0.7rem;
+            font-weight: 500;
+            padding: 0.3rem 0.65rem;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--glass-border);
+            color: var(--text-secondary);
+        }
+
+        .game-arrow {
+            margin-top: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-family: var(--font-body);
+            font-size: 0.8rem;
+            font-weight: 500;
             color: var(--text-secondary);
             opacity: 0;
-            transform: translateY(8px);
-            transition: opacity 300ms ease-out, transform 300ms ease-out;
-            margin-top: 0.75rem;
+            transform: translateX(-4px);
+            transition: opacity 250ms ease, transform 250ms ease;
         }
 
-        .game-card:hover .click-hint {
-            opacity: 0.7;
-            transform: translateY(0);
-        }
+        .game-card:hover .game-arrow { opacity: 1; transform: translateX(0); }
+        .game-card.geometrydash:hover .game-arrow { color: var(--accent-cyan); }
+        .game-card.webcraft:hover .game-arrow { color: var(--accent-purple); }
+
+        .game-arrow svg { width: 14px; height: 14px; }
 
         .footer {
-            font-family: var(--font-mono);
-            font-size: 0.65rem;
-            color: rgba(148,163,184,0.35);
+            font-family: var(--font-body);
+            font-size: 0.7rem;
+            color: rgba(148, 163, 184, 0.25);
             margin-top: 3rem;
-            letter-spacing: 0.1em;
-        }
-
-        @keyframes pulse {
-            0%, 100% { box-shadow: 0 0 20px rgba(0,255,204,0.15), 0 8px 32px rgba(0,0,0,0.3); }
-            50%      { box-shadow: 0 0 40px rgba(0,255,204,0.25), 0 8px 32px rgba(0,0,0,0.3); }
-        }
-
-        .game-card:active {
-            transform: scale(0.97);
-            transition: transform 80ms ease-out;
+            letter-spacing: 0.06em;
         }
 
         @media (prefers-reduced-motion: reduce) {
-            .particles { display: none; }
-            body::before { display: none; }
+            .ambient { display: none; }
             .game-card { transition: none; }
             .game-card:hover { transform: none; }
-            .click-hint { transition: none; }
+            .game-arrow { transition: none; }
             .game-card:active { transform: none; }
         }
 
         @media (max-width: 640px) {
-            .container { padding: 1.5rem; }
+            .container { padding: 1.25rem; }
             .games { grid-template-columns: 1fr; gap: 1rem; }
-            .game-card { padding: 1.5rem 1rem; }
+            .game-card { padding: 1.5rem 1.25rem; border-radius: 16px; }
+            .header { margin-bottom: 2rem; }
         }
     </style>
 </head>
 <body>
-    <div class="particles" aria-hidden="true">
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
+    <div class="ambient" aria-hidden="true">
+        <div class="ambient-orb"></div>
+        <div class="ambient-orb"></div>
+        <div class="ambient-orb"></div>
     </div>
 
     <main class="container">
-        <div class="logo">
-            <div class="logo-icon" aria-hidden="true"></div>
-        </div>
-        <h1 class="title">WEBGAMES</h1>
-        <p class="subtitle">SELECT YOUR GAME</p>
+        <header class="header">
+            <div class="logo-mark">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/>
+                    <line x1="12" y1="22" x2="12" y2="15.5"/>
+                    <polyline points="22 8.5 12 15.5 2 8.5"/>
+                </svg>
+            </div>
+            <h1 class="title">
+                <span class="title-accent">Web</span>Games
+            </h1>
+            <p class="subtitle">选择一个游戏开始</p>
+        </header>
 
         <div class="games">
             <a href="Geometrydash.html"
                class="game-card geometrydash"
                aria-label="开始 Geometry Dash - Neon Edition 节奏平台跳跃游戏">
-                <span class="game-icon" aria-hidden="true">&#x25B3;</span>
-                <div class="game-title">GEOMETRY DASH</div>
-                <div class="game-desc">Neon Edition &mdash; 节奏平台跳跃，跟随电音律动穿越霓虹障碍</div>
-                <span class="game-badge">RHYTHM PLATFORMER</span>
-                <div class="click-hint">点击开始 &rarr;</div>
+                <div class="game-card-accent"></div>
+                <div class="game-icon-row">
+                    <div class="game-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                        </svg>
+                    </div>
+                    <div class="game-title">Geometry Dash</div>
+                </div>
+                <div class="game-desc">Neon Edition — 节奏平台跳跃，跟随电音律动穿越霓虹障碍</div>
+                <div class="game-meta">
+                    <span class="game-badge">节奏游戏</span>
+                    <span class="game-badge">平台跳跃</span>
+                </div>
+                <div class="game-arrow">
+                    进入游戏
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                </div>
             </a>
 
             <a href="webmc.html"
                class="game-card webcraft"
                aria-label="开始 Hotsteel's Webcraft - Ultimate 体素沙盒世界">
-                <span class="game-icon" aria-hidden="true">&#x25A0;</span>
-                <div class="game-title">WEBCRAFT</div>
-                <div class="game-desc">Ultimate &mdash; 体素沙盒世界，自由挖掘与建造</div>
-                <span class="game-badge">VOXEL SANDBOX</span>
-                <div class="click-hint">点击开始 &rarr;</div>
+                <div class="game-card-accent"></div>
+                <div class="game-icon-row">
+                    <div class="game-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                            <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                            <line x1="12" y1="22.08" x2="12" y2="12"/>
+                        </svg>
+                    </div>
+                    <div class="game-title">Webcraft</div>
+                </div>
+                <div class="game-desc">Ultimate — 体素沙盒世界，自由挖掘与建造</div>
+                <div class="game-meta">
+                    <span class="game-badge">体素沙盒</span>
+                    <span class="game-badge">3D 建造</span>
+                </div>
+                <div class="game-arrow">
+                    进入游戏
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                </div>
             </a>
         </div>
 
-        <footer class="footer">HOTSTEEL&nbsp;PRESENTS</footer>
+        <footer class="footer">HOTSTEEL PRESENTS</footer>
     </main>
 
     <script>
@@ -360,7 +400,7 @@
                 return audioCtx;
             }
 
-            function playHover(/* cardEl */) {
+            function playHover() {
                 var ctx = getCtx();
                 var osc = ctx.createOscillator();
                 var gain = ctx.createGain();
@@ -368,14 +408,14 @@
                 gain.connect(ctx.destination);
 
                 osc.type = 'sine';
-                osc.frequency.setValueAtTime(880, ctx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.06);
+                osc.frequency.setValueAtTime(600, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(900, ctx.currentTime + 0.05);
 
-                gain.gain.setValueAtTime(0.03, ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+                gain.gain.setValueAtTime(0.025, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
 
                 osc.start(ctx.currentTime);
-                osc.stop(ctx.currentTime + 0.08);
+                osc.stop(ctx.currentTime + 0.06);
             }
 
             function playClick(cardEl) {
@@ -393,35 +433,35 @@
                 gain2.connect(ctx.destination);
 
                 var isGD = cardEl.classList.contains('geometrydash');
-                var freq1 = isGD ? 1200 : 900;
-                var freq2 = isGD ? 1800 : 1400;
+                var freq1 = isGD ? 800 : 600;
+                var freq2 = isGD ? 1400 : 1100;
 
-                osc1.type = 'square';
+                osc1.type = 'sine';
                 osc1.frequency.setValueAtTime(freq1, now);
-                osc1.frequency.exponentialRampToValueAtTime(freq1 * 1.5, now + 0.12);
+                osc1.frequency.exponentialRampToValueAtTime(freq1 * 1.4, now + 0.15);
 
-                gain1.gain.setValueAtTime(0.06, now);
-                gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+                gain1.gain.setValueAtTime(0.05, now);
+                gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
 
-                osc2.type = 'triangle';
-                osc2.frequency.setValueAtTime(freq2, now + 0.06);
-                osc2.frequency.exponentialRampToValueAtTime(freq2 * 0.5, now + 0.2);
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(freq2, now + 0.04);
+                osc2.frequency.exponentialRampToValueAtTime(freq2 * 0.6, now + 0.15);
 
-                gain2.gain.setValueAtTime(0.04, now + 0.06);
-                gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+                gain2.gain.setValueAtTime(0.035, now + 0.04);
+                gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
 
                 osc1.start(now);
-                osc1.stop(now + 0.15);
-                osc2.start(now + 0.06);
-                osc2.stop(now + 0.2);
+                osc1.stop(now + 0.2);
+                osc2.start(now + 0.04);
+                osc2.stop(now + 0.15);
             }
 
             var cards = document.querySelectorAll('.game-card');
 
             for (var i = 0; i < cards.length; i++) {
                 (function(card) {
-                    card.addEventListener('mouseenter', function() { playHover(card); });
-                    card.addEventListener('focus', function() { playHover(card); });
+                    card.addEventListener('mouseenter', function() { playHover(); });
+                    card.addEventListener('focus', function() { playHover(); });
                     card.addEventListener('click', function(e) { playClick(card); });
                 })(cards[i]);
             }
