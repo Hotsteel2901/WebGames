@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Hotsteel's Webcraft - Ultimate</title>
+    <style>
+        /* 基础重置，确保没有任何奇怪的文本溢出 */
+        * { box-sizing: border-box; }
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+            background-color: #87CEEB; touch-action: none; font-family: sans-serif;
+            user-select: none; -webkit-user-select: none;
+        }
+        
+        #game-canvas { display: block; width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; }
+
+        /* UI层总控 */
+        #ui-layer { position: absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:20; }
+        
+        /* 准星：完美居中不变形 */
+        #crosshair {
+            position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; 
+            transform: translate(-50%, -50%); pointer-events: none; z-index: 10;
+            display: flex; justify-content: center; align-items: center;
+        }
+        #crosshair::before {
+            content: ''; position: absolute; width: 14px; height: 2px; 
+            background-color: rgba(255, 255, 255, 0.85); box-shadow: 0 0 2px rgba(0,0,0,0.8);
+        }
+        #crosshair::after {
+            content: ''; position: absolute; width: 2px; height: 14px; 
+            background-color: rgba(255, 255, 255, 0.85); box-shadow: 0 0 2px rgba(0,0,0,0.8);
+        }
+
+        /* 顶部信息面板 */
+        #top-info { position: absolute; top: 10px; left: 10px; color: white; text-shadow: 1px 1px 0 #000; font-size: 14px; pointer-events:auto; display: flex; flex-direction: column; gap: 5px;}
+        .top-btn-group { display: flex; gap: 8px; }
+        #mode-btn, #bag-btn { background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.8); color: white; padding: 6px 12px; border-radius: 4px; font-weight: bold; }
+        #mode-btn:active, #bag-btn:active { background: rgba(255,255,255,0.5); color: black; }
+        
+        /* 挖掘进度条 */
+        #mine-progress {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, 20px);
+            width: 60px; height: 8px; background: rgba(0,0,0,0.6); border: 1px solid #fff; display: none; z-index: 25;
+            border-radius: 4px; overflow: hidden;
+        }
+        #mine-bar { width: 0%; height: 100%; background: #4CAF50; }
+
+        /* 操作区 */
+        #move-zone { position: absolute; bottom: 60px; left: 20px; width: 130px; height: 130px; background: rgba(0,0,0,0.2); border-radius: 50%; pointer-events: auto; display: flex; justify-content: center; align-items: center; border: 2px solid rgba(255,255,255,0.3); }
+        #move-knob { width: 45px; height: 45px; background: rgba(255,255,255,0.7); border-radius: 50%; pointer-events: none; box-shadow: 0 2px 5px rgba(0,0,0,0.5);}
+        #look-zone { position: absolute; top: 0; right: 0; bottom: 0; left: 40%; pointer-events: auto; z-index: 21; }
+
+        /* 动作与飞行按钮 */
+        #btn-container { position: absolute; bottom: 60px; right: 20px; display: grid; grid-template-columns: 60px 60px; gap: 10px; pointer-events: auto; z-index: 25; }
+        .action-btn { width: 60px; height: 60px; background: rgba(0,0,0,0.4); color: white; border: 2px solid rgba(255,255,255,0.6); border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 13px; font-weight: bold; text-shadow: 1px 1px 0 #000; box-shadow: 0 4px 6px rgba(0,0,0,0.3);}
+        .action-btn:active { background: rgba(255,255,255,0.6); color: #000; text-shadow: none; transform: scale(0.95); }
+        #fly-controls { position: absolute; bottom: 140px; right: 20px; display: none; flex-direction: column; gap: 10px; pointer-events: auto; z-index: 25; }
+
+        /* 快捷栏 */
+        #hotbar { position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%); display: flex; background: rgba(0,0,0,0.7); border: 2px solid #555; padding: 2px; border-radius: 4px; pointer-events: auto; z-index: 25; box-shadow: 0 4px 8px rgba(0,0,0,0.5);}
+        .slot { width: 38px; height: 38px; border: 2px solid #333; margin: 2px; display: flex; justify-content: center; align-items: center; background-color: #8b8b8b; position: relative; }
+        .slot.active { border-color: #fff; border-width: 3px; transform: scale(1.08); z-index: 2;}
+        .slot-img { width: 26px; height: 26px; border: 1px solid rgba(0,0,0,0.5); pointer-events: none; }
+        .slot-count { position: absolute; bottom: -2px; right: 0px; font-size: 11px; color: white; text-shadow: 1px 1px 0 #000; font-weight: bold; pointer-events: none; }
+
+        /* 背包系统 */
+        #inventory-modal { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 85%; max-width: 450px; background: rgba(30,30,30,0.95); border: 4px solid #555; border-radius: 8px; display: none; flex-direction: column; padding: 15px; pointer-events: auto; z-index: 100; box-shadow: 0 0 20px rgba(0,0,0,0.8); }
+        .inv-title { color: white; text-align: center; margin-bottom: 15px; font-weight: bold; font-size: 18px; text-shadow: 1px 1px 0 #000; border-bottom: 2px solid #555; padding-bottom: 10px;}
+        .inv-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+        .inv-slot { aspect-ratio: 1; border: 2px solid #444; background: #666; display: flex; justify-content: center; align-items: center; position: relative; cursor: pointer; }
+        .inv-slot:active { border-color: white; }
+        .close-btn { position: absolute; top: -15px; right: -15px; width: 36px; height: 36px; background: #e74c3c; color: white; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; border: 3px solid white; font-size: 18px;}
+
+        /* 加载屏 */
+        #loading { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a1a; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #fff; z-index: 1000; }
+        .progress-box { width: 60%; height: 20px; border: 2px solid #fff; margin-top: 20px; padding: 2px; }
+        #progress-fill { width: 0%; height: 100%; background: #4CAF50; transition: width 0.1s; }
+        #error-log { color: #ff5555; margin-top: 20px; font-size: 14px; max-width: 80%; text-align: center; font-weight: bold;}
+
+        /* 桌面端开始提示（点击锁定鼠标） */
+        #desktop-hint {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.75); color: #fff; z-index: 500;
+            display: none; flex-direction: column; justify-content: center; align-items: center;
+            text-align: center; pointer-events: none; padding: 20px;
+        }
+        #desktop-hint h2 { margin: 0 0 14px; font-size: 26px; text-shadow: 1px 1px 0 #000; }
+        #desktop-hint p { margin: 4px 0; font-size: 14px; color: #ddd; text-shadow: 1px 1px 0 #000; }
+
+        /* 设备适配：桌面端隐藏触屏控件，移动端隐藏桌面提示 */
+        body.desktop #desktop-hint { display: flex; }
+        body.desktop #move-zone, body.desktop #look-zone,
+        body.desktop #btn-container, body.desktop #fly-controls { display: none !important; }
+        body.mobile #desktop-hint { display: none !important; }
+
+        /* 桌面端快捷栏可点击 */
+        body.desktop .slot { cursor: pointer; }
+        body.desktop .inv-slot { cursor: pointer; }
+    </style>
+    
+    <!-- 替换为国内更稳定的 JSdelivr CDN 节点 -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+    <!-- 双重容错：如果上面的失效，自动回退到 unpkg -->
+    <script>
+        if (typeof THREE === 'undefined') {
+            document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"><\/script>');
+        }
+    </script>
+</head>
+<body>
+    <div id="loading">
+        <h2>世界生成中 (128x128 超大地图)...</h2>
+        <div style="font-size: 12px; color: #aaa; margin-top:10px;">Hotsteel 专属极致容错稳定版</div>
+        <div class="progress-box"><div id="progress-fill"></div></div>
+        <div id="loading-text" style="margin-top: 10px; font-weight: bold;">等待 3D 引擎响应...</div>
+        <div id="error-log"></div>
+    </div>
+    
+    <canvas id="game-canvas"></canvas>
+    
+    <!-- UI层 -->
+    <div id="ui-layer">
+        <div id="crosshair"></div>
+        <div id="mine-progress"><div id="mine-bar"></div></div>
+
+        <div id="top-info">
+            <div class="top-btn-group">
+                <div id="mode-btn">模式: 创造</div>
+                <div id="bag-btn">背包</div>
+            </div>
+            <div>坐标: <span id="coords">0, 0, 0</span> | FPS: <span id="fps">0</span></div>
+        </div>
+        
+        <div id="look-zone"></div>
+        <div id="move-zone"><div id="move-knob"></div></div>
+
+        <div id="fly-controls">
+            <div id="fly-up-btn" class="action-btn" style="background:rgba(0,150,255,0.5);">上升</div>
+            <div id="fly-down-btn" class="action-btn" style="background:rgba(0,150,255,0.5);">下降</div>
+        </div>
+
+        <div id="btn-container">
+            <div id="mine-btn" class="action-btn">挖掘</div>
+            <div id="place-btn" class="action-btn">放置</div>
+            <div id="jump-btn" class="action-btn" style="grid-column: span 2; width: 100%; border-radius: 30px;">跳跃/飞</div>
+        </div>
+
+        <div id="hotbar"></div>
+    </div>
+
+    <!-- 背包UI -->
+    <div id="inventory-modal">
+        <div class="close-btn" id="close-bag">×</div>
+        <div class="inv-title">背包 & 工具</div>
+        <div class="inv-grid" id="inv-grid"></div>
+    </div>
+
+    <!-- 桌面端提示层 -->
+    <div id="desktop-hint">
+        <h2>点击屏幕开始游戏</h2>
+        <p>WASD 移动 · 鼠标视角 · 空格跳跃 / 双击切换飞行 · Shift 下降</p>
+        <p>左键挖掘（按住连续） · 右键放置 · 滚轮或 1-8 切换物品 · E 背包</p>
+        <p style="margin-top:14px;color:#999;font-size:12px;">按 Esc 释放鼠标</p>
+    </div>
+
+    <script>
+        // ==========================================
+        // 核心变量声明 (绝不在全局立刻调用 THREE 对象，防止断网崩溃)
+        // ==========================================
+        const WORLD_SIZE = 128; 
+        const WORLD_HEIGHT = 64;
+        const CHUNK_SIZE = 16;
+        const NUM_CHUNKS = WORLD_SIZE / CHUNK_SIZE; 
+        
+        let gameMode = 'creative';
+        let player = {
+            height: 1.6, radius: 0.3, speed: 5.5, jumpForce: 8.5, gravity: 24.0,
+            velocity: null, // 将在初始化时赋值为 Vector3
+            onGround: false, pitch: 0, yaw: 0, isFlying: true, flySpeed: 8.0
+        };
+        const input = { move: {x:0, y:0}, flyUp: false, flyDown: false };
+
+        // 设备识别：fine pointer 视为桌面端（键鼠），否则移动端（触屏）
+        const isDesktop = window.matchMedia('(pointer: fine)').matches;
+        document.body.classList.add(isDesktop ? 'desktop' : 'mobile');
+
+        const Blocks = { AIR: 0, BEDROCK: 1, STONE: 2, DIRT: 3, GRASS: 4, WOOD: 5, LEAVES: 6, PLANKS: 7, GLASS: 8, COAL_ORE: 9, IRON_ORE: 10, DIAMOND_ORE: 11 };
+        const BlockDefs = {
+            1: { color: '#333333', hard: 999, tool: 'pickaxe' },
+            2: { color: '#7d7d7d', hard: 1.5, tool: 'pickaxe' },
+            3: { color: '#866043', hard: 0.5, tool: 'shovel' },
+            4: { color: '#5b9c31', hard: 0.6, tool: 'shovel' },
+            5: { color: '#5c4033', hard: 2.0, tool: 'axe' },
+            6: { color: '#2e6b18', hard: 0.2, tool: 'hand', trans: true },
+            7: { color: '#b5854b', hard: 1.5, tool: 'axe' },
+            8: { color: '#ccffff', hard: 0.3, tool: 'hand', trans: true },
+            9: { color: '#666666', hard: 3.0, tool: 'pickaxe' },
+            10: { color: '#d8af93', hard: 4.0, tool: 'pickaxe' },
+            11: { color: '#55ffff', hard: 6.0, tool: 'pickaxe' }
+        };
+        const Tools = { 'hand': { speed: 1.0 }, 'pickaxe': { speed: 5.0, icon: '#aaa' }, 'axe': { speed: 5.0, icon: '#8b4513' }, 'shovel': { speed: 5.0, icon: '#cd853f' } };
+
+        const inventory = { items: { 2:0, 3:0, 4:0, 5:0, 7:0, 8:0, 9:0, 10:0, 11:0 }, tools: ['pickaxe', 'axe', 'shovel'] };
+        let hotbarSlots = [4, 3, 2, 5, 7, 8, 'pickaxe', 'axe']; 
+        let selectedSlotIdx = 0;
+
+        let scene, camera, renderer, targetHighlight;
+        const materials = {};
+        let boxGeo, dummy; // 延迟到引擎加载后实例化
+
+        const worldData = new Uint8Array(WORLD_SIZE * WORLD_HEIGHT * WORLD_SIZE);
+        function getIndex(x, y, z) { return y * WORLD_SIZE * WORLD_SIZE + z * WORLD_SIZE + x; }
+        function getBlock(x, y, z) {
+            if(x<0||x>=WORLD_SIZE||y<0||y>=WORLD_HEIGHT||z<0||z>=WORLD_SIZE) return 0;
+            return worldData[getIndex(x, y, z)];
+        }
+        function setBlock(x, y, z, id) {
+            if(x>=0&&x<WORLD_SIZE&&y>=0&&y<WORLD_HEIGHT&&z>=0&&z<WORLD_SIZE) { worldData[getIndex(x, y, z)] = id; }
+        }
+
+        const chunks = new Array(NUM_CHUNKS * NUM_CHUNKS);
+        function getChunkIdx(cx, cz) { return cz * NUM_CHUNKS + cx; }
+
+        // ==========================================
+        // 渲染与生成系统 (保持顶级优化逻辑)
+        // ==========================================
+        function createTex(drawFunc, isTrans = false) {
+            const canvas = document.createElement('canvas'); canvas.width = 16; canvas.height = 16;
+            drawFunc(canvas.getContext('2d'));
+            const tex = new THREE.CanvasTexture(canvas); tex.magFilter = tex.minFilter = THREE.NearestFilter;
+            return new THREE.MeshLambertMaterial({ map: tex, transparent: isTrans, alphaTest: isTrans ? 0.5 : 0 });
+        }
+
+        function initMaterials() {
+            const noiseRect = (ctx, col1, col2, prob) => { ctx.fillStyle=col1; ctx.fillRect(0,0,16,16); for(let i=0;i<16;i++)for(let j=0;j<16;j++)if(Math.random()<prob){ctx.fillStyle=col2; ctx.fillRect(i,j,1,1);} };
+            materials[Blocks.BEDROCK] = createTex(ctx => noiseRect(ctx, '#333', '#111', 0.5));
+            materials[Blocks.STONE] = createTex(ctx => { noiseRect(ctx, '#7d7d7d', '#666', 0.4); ctx.fillStyle='#555'; ctx.fillRect(2,2,1,2); });
+            materials[Blocks.DIRT] = createTex(ctx => noiseRect(ctx, '#866043', 'rgba(0,0,0,0.15)', 0.3));
+            materials[Blocks.PLANKS] = createTex(ctx => { noiseRect(ctx, '#b5854b', '#a0703b', 0); ctx.fillStyle='#8a5a2b'; for(let i=0;i<16;i+=4)ctx.fillRect(0,i,16,1); ctx.fillRect(4,0,1,4); ctx.fillRect(12,4,1,4); ctx.fillRect(8,8,1,4); });
+            materials[Blocks.LEAVES] = createTex(ctx => { noiseRect(ctx, '#2e6b18', '#1e4b08', 0.3); ctx.clearRect(2,2,2,2); ctx.clearRect(10,8,2,2); }, true);
+            materials[Blocks.GLASS] = createTex(ctx => { ctx.fillStyle='rgba(200,255,255,0.2)'; ctx.fillRect(0,0,16,16); ctx.fillStyle='rgba(255,255,255,0.6)'; ctx.fillRect(0,0,16,2); ctx.fillRect(0,0,2,16); ctx.fillRect(14,0,2,16); ctx.fillRect(0,14,16,2); ctx.fillRect(3,3,2,2); }, true);
+            const logSide = createTex(ctx => { ctx.fillStyle='#5c4033'; ctx.fillRect(0,0,16,16); ctx.fillStyle='#3a2618'; for(let i=0;i<16;i+=3)ctx.fillRect(i,0,1,16); });
+            const logTop = createTex(ctx => { ctx.fillStyle='#a08050'; ctx.fillRect(0,0,16,16); ctx.strokeStyle='#806030'; ctx.beginPath(); ctx.arc(8,8,5,0,Math.PI*2); ctx.stroke(); });
+            materials[Blocks.WOOD] = [logSide, logSide, logTop, logTop, logSide, logSide];
+            const grassSide = createTex(ctx => { noiseRect(ctx, '#866043', 'rgba(0,0,0,0.1)', 0.3); ctx.fillStyle='#5b9c31'; ctx.fillRect(0,0,16,3); for(let i=0;i<16;i++)ctx.fillRect(i,3,1,Math.floor(Math.random()*3)); });
+            const grassTop = createTex(ctx => noiseRect(ctx, '#5b9c31', '#4a8028', 0.2));
+            materials[Blocks.GRASS] = [grassSide, grassSide, grassTop, materials[Blocks.DIRT], grassSide, grassSide];
+            const genOre = (baseCol, oreCol) => createTex(ctx => { noiseRect(ctx, baseCol, '#666', 0.4); ctx.fillStyle = oreCol; [[3,3],[11,4],[5,10],[12,11],[8,7]].forEach(([x,y]) => { ctx.fillRect(x,y,2,2); ctx.fillStyle='rgba(255,255,255,0.5)'; ctx.fillRect(x,y,1,1); ctx.fillStyle=oreCol; }); });
+            materials[Blocks.COAL_ORE] = genOre('#7d7d7d', '#222');
+            materials[Blocks.IRON_ORE] = genOre('#7d7d7d', '#d8af93');
+            materials[Blocks.DIAMOND_ORE] = genOre('#7d7d7d', '#55ffff');
+        }
+
+        const p = new Uint8Array(512); for(let i=0;i<256;i++) p[i] = p[i+256] = Math.floor(Math.random()*256);
+        function fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+        function lerp(t, a, b) { return a + t * (b - a); }
+        function grad(hash, x, y, z) { let h = hash & 15; let u = h<8 ? x : y, v = h<4 ? y : h===12||h===14 ? x : z; return ((h&1) === 0 ? u : -u) + ((h&2) === 0 ? v : -v); }
+        function noise3D(x, y, z) {
+            let X = Math.floor(x)&255, Y = Math.floor(y)&255, Z = Math.floor(z)&255; x -= Math.floor(x); y -= Math.floor(y); z -= Math.floor(z);
+            let u = fade(x), v = fade(y), w = fade(z), A = p[X]+Y, AA = p[A]+Z, AB = p[A+1]+Z, B = p[X+1]+Y, BA = p[B]+Z, BB = p[B+1]+Z;
+            return lerp(w, lerp(v, lerp(u, grad(p[AA], x, y, z), grad(p[BA], x-1, y, z)), lerp(u, grad(p[AB], x, y-1, z), grad(p[BB], x-1, y-1, z))),
+                          lerp(v, lerp(u, grad(p[AA+1], x, y, z-1), grad(p[BA+1], x-1, y, z-1)), lerp(u, grad(p[AB+1], x, y-1, z-1), grad(p[BB+1], x-1, y-1, z-1))));
+        }
+
+        async function generateWorld() {
+            const fill = document.getElementById('progress-fill');
+            const txt = document.getElementById('loading-text');
+            let count = 0; const total = WORLD_SIZE * WORLD_SIZE;
+
+            for (let x = 0; x < WORLD_SIZE; x++) {
+                for (let z = 0; z < WORLD_SIZE; z++) {
+                    let e = 1*noise3D(x*0.02, 0, z*0.02) + 0.5*noise3D(x*0.04, 0, z*0.04) + 0.25*noise3D(x*0.08, 0, z*0.08);
+                    e = Math.pow(e / 1.75 * 0.5 + 0.5, 2.0);
+                    let h = 15 + Math.floor(e * 35); 
+                    
+                    for (let y = 0; y <= h; y++) {
+                        let block = Blocks.STONE;
+                        if (y === 0) block = Blocks.BEDROCK;
+                        else if (y === h) block = Blocks.GRASS;
+                        else if (y >= h - 3) block = Blocks.DIRT;
+                        else {
+                            if (noise3D(x*0.08, y*0.08, z*0.08) > 0.35) block = Blocks.AIR; 
+                            else {
+                                let ore = Math.random();
+                                if (ore < 0.005 && y < 15) block = Blocks.DIAMOND_ORE;
+                                else if (ore < 0.02 && y < 35) block = Blocks.IRON_ORE;
+                                else if (ore < 0.03) block = Blocks.COAL_ORE;
+                            }
+                        }
+                        setBlock(x, y, z, block);
+                    }
+
+                    if (h > 15 && h < 45 && Math.random() < 0.02 && getBlock(x, h, z) === Blocks.GRASS) {
+                        let treeH = 4 + Math.floor(Math.random()*3);
+                        for(let i=1; i<=treeH; i++) setBlock(x, h+i, z, Blocks.WOOD);
+                        for(let ly=h+treeH-1; ly<=h+treeH+1; ly++) {
+                            let r = (ly === h+treeH+1) ? 1 : 2;
+                            for(let lx=-r; lx<=r; lx++) for(let lz=-r; lz<=r; lz++) {
+                                if(Math.abs(lx)==r && Math.abs(lz)==r && r==2) continue;
+                                if(x+lx>=0 && x+lx<WORLD_SIZE && z+lz>=0 && z+lz<WORLD_SIZE) {
+                                    if(getBlock(x+lx, ly, z+lz) === Blocks.AIR) setBlock(x+lx, ly, z+lz, Blocks.LEAVES);
+                                }
+                            }
+                        }
+                    }
+                    count++;
+                    if (count % 128 === 0) {
+                        fill.style.width = `${(count / total) * 100}%`;
+                        txt.innerText = `计算地形矩阵: ${Math.floor((count/total)*100)}%`;
+                        await new Promise(r => setTimeout(r, 1)); 
+                    }
+                }
+            }
+            for(let x=0; x<WORLD_SIZE; x++) for(let y=0; y<WORLD_HEIGHT; y++) {
+                setBlock(x,y,0,Blocks.BEDROCK); setBlock(x,y,WORLD_SIZE-1,Blocks.BEDROCK);
+                setBlock(0,y,x,Blocks.BEDROCK); setBlock(WORLD_SIZE-1,y,x,Blocks.BEDROCK);
+            }
+        }
+
+        function isTransparent(id) { return id === Blocks.AIR || id === Blocks.LEAVES || id === Blocks.GLASS; }
+
+        async function meshAllChunks() {
+            const fill = document.getElementById('progress-fill');
+            const txt = document.getElementById('loading-text');
+            const total = NUM_CHUNKS * NUM_CHUNKS;
+
+            for(let cz = 0; cz < NUM_CHUNKS; cz++) {
+                for(let cx = 0; cx < NUM_CHUNKS; cx++) {
+                    let c = cz * NUM_CHUNKS + cx;
+                    fill.style.width = `${(c / total) * 100}%`;
+                    txt.innerText = `构建 3D 实体网格: ${c}/${total} (防止卡顿，请稍候)`;
+                    await new Promise(r => setTimeout(r, 15));
+                    buildChunkMesh(cx, cz);
+                }
+            }
+        }
+
+        function buildChunkMesh(cx, cz) {
+            const idx = getChunkIdx(cx, cz);
+            if (chunks[idx]) Object.values(chunks[idx]).forEach(imesh => { scene.remove(imesh); imesh.dispose(); });
+            chunks[idx] = {};
+
+            const startX = cx * CHUNK_SIZE, startZ = cz * CHUNK_SIZE;
+            const blockCounts = {};
+
+            for (let x = startX; x < startX + CHUNK_SIZE; x++) {
+                for (let z = startZ; z < startZ + CHUNK_SIZE; z++) {
+                    for (let y = 0; y < WORLD_HEIGHT; y++) {
+                        let id = getBlock(x, y, z);
+                        if (id === Blocks.AIR) continue;
+                        let visible = false;
+                        if (isTransparent(id)) visible = true;
+                        else if (y===0 || y===WORLD_HEIGHT-1 || x===0 || x===WORLD_SIZE-1 || z===0 || z===WORLD_SIZE-1) visible = true;
+                        else if (isTransparent(getBlock(x+1,y,z)) || isTransparent(getBlock(x-1,y,z)) || 
+                                 isTransparent(getBlock(x,y+1,z)) || isTransparent(getBlock(x,y-1,z)) || 
+                                 isTransparent(getBlock(x,y,z+1)) || isTransparent(getBlock(x,y,z-1))) visible = true;
+                        if (visible) blockCounts[id] = (blockCounts[id] || 0) + 1;
+                    }
+                }
+            }
+
+            const currentIdx = {};
+            for (let id in blockCounts) {
+                if (blockCounts[id] > 0) {
+                    const imesh = new THREE.InstancedMesh(boxGeo, materials[id], blockCounts[id]);
+                    scene.add(imesh); chunks[idx][id] = imesh; currentIdx[id] = 0;
+                }
+            }
+
+            for (let x = startX; x < startX + CHUNK_SIZE; x++) {
+                for (let z = startZ; z < startZ + CHUNK_SIZE; z++) {
+                    for (let y = 0; y < WORLD_HEIGHT; y++) {
+                        let id = getBlock(x, y, z);
+                        if (id === Blocks.AIR) continue;
+                        let visible = false;
+                        if (isTransparent(id)) visible = true;
+                        else if (y===0 || y===WORLD_HEIGHT-1 || x===0 || x===WORLD_SIZE-1 || z===0 || z===WORLD_SIZE-1) visible = true;
+                        else if (isTransparent(getBlock(x+1,y,z)) || isTransparent(getBlock(x-1,y,z)) || 
+                                 isTransparent(getBlock(x,y+1,z)) || isTransparent(getBlock(x,y-1,z)) || 
+                                 isTransparent(getBlock(x,y,z+1)) || isTransparent(getBlock(x,y,z-1))) visible = true;
+                        if (visible && chunks[idx][id]) {
+                            dummy.position.set(x, y, z); dummy.updateMatrix();
+                            chunks[idx][id].setMatrixAt(currentIdx[id]++, dummy.matrix);
+                        }
+                    }
+                }
+            }
+            Object.values(chunks[idx]).forEach(imesh => {
+                imesh.instanceMatrix.needsUpdate = true;
+                if(imesh.geometry.computeBoundingSphere) imesh.geometry.computeBoundingSphere();
+            });
+        }
+
+        function updateBlock(x, y, z, newId) {
+            setBlock(x, y, z, newId);
+            let cx = Math.floor(x / CHUNK_SIZE), cz = Math.floor(z / CHUNK_SIZE);
+            buildChunkMesh(cx, cz);
+            if (x % CHUNK_SIZE === 0 && cx > 0) buildChunkMesh(cx-1, cz);
+            if (x % CHUNK_SIZE === CHUNK_SIZE-1 && cx < NUM_CHUNKS-1) buildChunkMesh(cx+1, cz);
+            if (z % CHUNK_SIZE === 0 && cz > 0) buildChunkMesh(cx, cz-1);
+            if (z % CHUNK_SIZE === CHUNK_SIZE-1 && cz < NUM_CHUNKS-1) buildChunkMesh(cx, cz+1);
+        }
+
+        // ==========================================
+        // 初始化与生命周期
+        // ==========================================
+        function init3D() {
+            renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('game-canvas'), antialias: false });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(isDesktop ? Math.min(window.devicePixelRatio, 2) : 1.0);
+            renderer.setClearColor(0x87CEEB);
+            scene = new THREE.Scene();
+            const fogFar = isDesktop ? 90 : 60;
+            scene.fog = new THREE.Fog(0x87CEEB, isDesktop ? 25 : 20, fogFar);
+            camera = new THREE.PerspectiveCamera(85, window.innerWidth / window.innerHeight, 0.1, fogFar + 10);
+            camera.rotation.order = 'YXZ'; scene.add(camera);
+            scene.add(new THREE.HemisphereLight(0xffffff, 0x555555, 0.8));
+            const dirLight = new THREE.DirectionalLight(0xffffe0, 0.6);
+            dirLight.position.set(WORLD_SIZE, WORLD_HEIGHT*2, WORLD_SIZE); scene.add(dirLight);
+            targetHighlight = new THREE.LineSegments(new THREE.EdgesGeometry(boxGeo), new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 }));
+            targetHighlight.visible = false; scene.add(targetHighlight);
+            window.addEventListener('resize', () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); renderer.setPixelRatio(isDesktop ? Math.min(window.devicePixelRatio, 2) : 1.0); });
+        }
+
+        function updateHotbarUI() {
+            const hotbarEl = document.getElementById('hotbar'); hotbarEl.innerHTML = '';
+            hotbarSlots.forEach((item, index) => {
+                const slot = document.createElement('div'); slot.className = `slot ${index === selectedSlotIdx ? 'active' : ''}`;
+                const icon = document.createElement('div'); icon.className = 'slot-img';
+                if (typeof item === 'number') {
+                    icon.style.backgroundColor = BlockDefs[item] ? BlockDefs[item].color : '#fff';
+                    if (gameMode === 'survival') {
+                        const count = document.createElement('div'); count.className = 'slot-count';
+                        count.innerText = inventory.items[item] > 99 ? '99+' : inventory.items[item];
+                        slot.appendChild(count);
+                    }
+                } else { icon.style.backgroundColor = Tools[item].icon; icon.style.borderRadius = '50%'; }
+                slot.appendChild(icon);
+                const select = () => {
+                    document.querySelectorAll('.slot').forEach(el => el.classList.remove('active'));
+                    slot.classList.add('active'); selectedSlotIdx = index;
+                };
+                slot.addEventListener('touchstart', select, { passive: true });
+                slot.addEventListener('click', select);
+                hotbarEl.appendChild(slot);
+            });
+        }
+
+        function toggleInventory() {
+            const modal = document.getElementById('inventory-modal');
+            if (modal.style.display === 'flex') modal.style.display = 'none';
+            else {
+                if (isDesktop && document.pointerLockElement) document.exitPointerLock();
+                modal.style.display = 'flex'; const grid = document.getElementById('inv-grid'); grid.innerHTML = '';
+                Object.keys(inventory.items).forEach(id => {
+                    const div = document.createElement('div'); div.className = 'inv-slot'; div.style.backgroundColor = BlockDefs[id].color;
+                    if (gameMode === 'survival') div.innerHTML = `<span style="color:white;text-shadow:1px 1px #000;font-weight:bold">${inventory.items[id]}</span>`;
+                    div.onclick = () => { hotbarSlots[selectedSlotIdx] = parseInt(id); updateHotbarUI(); toggleInventory(); };
+                    grid.appendChild(div);
+                });
+                inventory.tools.forEach(tool => {
+                    const div = document.createElement('div'); div.className = 'inv-slot'; div.style.backgroundColor = Tools[tool].icon; div.style.borderRadius = '50%';
+                    div.onclick = () => { hotbarSlots[selectedSlotIdx] = tool; updateHotbarUI(); toggleInventory(); };
+                    grid.appendChild(div);
+                });
+            }
+        }
+
+        let miningTimer = null, mineProgress = 0, currentHit = null;
+
+        let lastJumpTap = 0;
+        const desktopInput = { keys: {}, mouseLeft: false };
+
+        function setupControls() {
+            // 公共按钮（双端通用）
+            document.getElementById('mode-btn').addEventListener('click', () => {
+                gameMode = gameMode === 'creative' ? 'survival' : 'creative';
+                document.getElementById('mode-btn').innerText = `模式: ${gameMode === 'creative' ? '创造' : '生存'}`;
+                if (gameMode === 'survival') { player.isFlying = false; document.getElementById('fly-controls').style.display = 'none'; }
+                updateHotbarUI();
+            });
+            document.getElementById('bag-btn').addEventListener('click', toggleInventory);
+            document.getElementById('close-bag').addEventListener('click', toggleInventory);
+
+            if (isDesktop) { setupDesktopControls(); return; }
+            setupMobileControls();
+        }
+
+        function setupMobileControls() {
+            document.getElementById('fly-up-btn').addEventListener('touchstart', () => input.flyUp = true, {passive:true});
+            document.getElementById('fly-up-btn').addEventListener('touchend', () => input.flyUp = false, {passive:true});
+            document.getElementById('fly-down-btn').addEventListener('touchstart', () => input.flyDown = true, {passive:true});
+            document.getElementById('fly-down-btn').addEventListener('touchend', () => input.flyDown = false, {passive:true});
+
+            document.getElementById('jump-btn').addEventListener('touchstart', () => {
+                const now = performance.now();
+                if (gameMode === 'creative' && now - lastJumpTap < 300) { player.isFlying = !player.isFlying; document.getElementById('fly-controls').style.display = player.isFlying ? 'flex' : 'none'; }
+                lastJumpTap = now; if (!player.isFlying) player.jumpBuffer = 0.2;
+            }, {passive:true});
+
+            const moveZone = document.getElementById('move-zone'), moveKnob = document.getElementById('move-knob');
+            let mId=null, mX=0, mY=0;
+            moveZone.addEventListener('touchstart', e => { mId = e.changedTouches[0].identifier; const r = moveZone.getBoundingClientRect(); mX = r.left+r.width/2; mY = r.top+r.height/2; handleJoy(e.changedTouches[0].clientX, e.changedTouches[0].clientY); }, {passive:true});
+            moveZone.addEventListener('touchmove', e => { for(let t of e.changedTouches) if(t.identifier===mId) handleJoy(t.clientX, t.clientY); }, {passive:true});
+            const rJoy = e => { for(let t of e.changedTouches) if(t.identifier===mId) { mId=null; moveKnob.style.transform=`translate(0,0)`; input.move={x:0,y:0}; }};
+            moveZone.addEventListener('touchend', rJoy); moveZone.addEventListener('touchcancel', rJoy);
+            function handleJoy(cx, cy) { let dx = cx-mX, dy = cy-mY, dist = Math.hypot(dx,dy); if(dist>40) { dx=(dx/dist)*40; dy=(dy/dist)*40; } moveKnob.style.transform = `translate(${dx}px, ${dy}px)`; input.move.x = dx/40; input.move.y = -dy/40; }
+
+            const lookZone = document.getElementById('look-zone');
+            let lId=null, lX=0, lY=0;
+            lookZone.addEventListener('touchstart', e => { if(lId!==null) return; lId=e.changedTouches[0].identifier; lX=e.changedTouches[0].clientX; lY=e.changedTouches[0].clientY; }, {passive:true});
+            lookZone.addEventListener('touchmove', e => { for(let t of e.changedTouches) if(t.identifier===lId) { player.yaw -= (t.clientX - lX) * 0.005; player.pitch -= (t.clientY - lY) * 0.005; player.pitch = Math.max(-Math.PI/2.1, Math.min(Math.PI/2.1, player.pitch)); lX = t.clientX; lY = t.clientY; } }, {passive:true});
+            const rLook = e => { for(let t of e.changedTouches) if(t.identifier===lId) lId=null; };
+            lookZone.addEventListener('touchend', rLook); lookZone.addEventListener('touchcancel', rLook);
+
+            const btnMine = document.getElementById('mine-btn');
+            btnMine.addEventListener('touchstart', startMining, {passive:true});
+            btnMine.addEventListener('touchend', stopMining, {passive:true});
+            btnMine.addEventListener('touchcancel', stopMining, {passive:true});
+            document.getElementById('place-btn').addEventListener('touchstart', doPlace, {passive:true});
+        }
+
+        function setupDesktopControls() {
+            const canvas = document.getElementById('game-canvas');
+            const hint = document.getElementById('desktop-hint');
+
+            // 点击锁定指针
+            canvas.addEventListener('click', () => {
+                if (document.pointerLockElement !== canvas) canvas.requestPointerLock();
+            });
+            document.addEventListener('pointerlockchange', () => {
+                const locked = document.pointerLockElement === canvas;
+                hint.style.display = locked ? 'none' : 'flex';
+                if (!locked) { desktopInput.mouseLeft = false; stopMining(); }
+            });
+
+            // 鼠标视角
+            document.addEventListener('mousemove', (e) => {
+                if (document.pointerLockElement !== canvas) return;
+                player.yaw -= e.movementX * 0.0025;
+                player.pitch -= e.movementY * 0.0025;
+                player.pitch = Math.max(-Math.PI/2.1, Math.min(Math.PI/2.1, player.pitch));
+            });
+
+            // 键盘
+            document.addEventListener('keydown', (e) => {
+                desktopInput.keys[e.code] = true;
+                if (e.code === 'KeyE') { e.preventDefault(); toggleInventory(); return; }
+                if (e.code.startsWith('Digit')) {
+                    const n = parseInt(e.code.slice(5)) - 1;
+                    if (n >= 0 && n < hotbarSlots.length) { selectedSlotIdx = n; updateHotbarUI(); }
+                }
+                if (e.code === 'Space') {
+                    e.preventDefault();
+                    if (!e.repeat) {
+                        const now = performance.now();
+                        if (gameMode === 'creative' && now - lastJumpTap < 300) player.isFlying = !player.isFlying;
+                        lastJumpTap = now;
+                    }
+                    if (!player.isFlying) player.jumpBuffer = 0.2;
+                }
+            });
+            document.addEventListener('keyup', (e) => { desktopInput.keys[e.code] = false; });
+
+            // 鼠标按键：左键挖掘（按住连续），右键放置
+            canvas.addEventListener('mousedown', (e) => {
+                if (document.pointerLockElement !== canvas) return;
+                if (e.button === 0) { desktopInput.mouseLeft = true; startMining(); }
+                else if (e.button === 2) { doPlace(); }
+            });
+            document.addEventListener('mouseup', (e) => {
+                if (e.button === 0) { desktopInput.mouseLeft = false; stopMining(); }
+            });
+            canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+            // 滚轮切换快捷栏
+            document.addEventListener('wheel', (e) => {
+                if (document.pointerLockElement !== canvas) return;
+                if (e.deltaY > 0) selectedSlotIdx = (selectedSlotIdx + 1) % hotbarSlots.length;
+                else selectedSlotIdx = (selectedSlotIdx - 1 + hotbarSlots.length) % hotbarSlots.length;
+                updateHotbarUI();
+            }, {passive:true});
+        }
+
+        // 将桌面端键鼠状态同步到 input
+        function updateDesktopInput() {
+            if (!isDesktop) return;
+            const invOpen = document.getElementById('inventory-modal').style.display === 'flex';
+            const locked = document.pointerLockElement === document.getElementById('game-canvas');
+            if (!locked || invOpen) { input.move.x = 0; input.move.y = 0; input.flyUp = false; input.flyDown = false; return; }
+            const k = desktopInput.keys;
+            let x = 0, y = 0;
+            if (k['KeyW']) y += 1;
+            if (k['KeyS']) y -= 1;
+            if (k['KeyA']) x -= 1;
+            if (k['KeyD']) x += 1;
+            input.move.x = x; input.move.y = y;
+            input.flyUp = !!k['Space'] && player.isFlying;
+            input.flyDown = (!!k['ShiftLeft'] || !!k['ShiftRight']) && player.isFlying;
+        }
+
+        function raycast() {
+            let t = 0.0, o = camera.position, d = new THREE.Vector3(0,0,-1).applyEuler(camera.rotation);
+            let ix = Math.floor(o.x), iy = Math.floor(o.y), iz = Math.floor(o.z);
+            const sx = Math.sign(d.x), sy = Math.sign(d.y), sz = Math.sign(d.z);
+            const dx = sx!==0 ? Math.abs(1/d.x) : Infinity, dy = sy!==0 ? Math.abs(1/d.y) : Infinity, dz = sz!==0 ? Math.abs(1/d.z) : Infinity;
+            let mx = sx>0 ? (ix+1-o.x)*dx : (o.x-ix)*dx, my = sy>0 ? (iy+1-o.y)*dy : (o.y-iy)*dy, mz = sz>0 ? (iz+1-o.z)*dz : (o.z-iz)*dz;
+            let face = new THREE.Vector3();
+            while(t < 6) {
+                let id = getBlock(ix, iy, iz);
+                if (id !== Blocks.AIR) return { pos: new THREE.Vector3(ix, iy, iz), normal: face, id: id };
+                if (mx < my) { if (mx < mz) { ix += sx; t = mx; mx += dx; face.set(-sx,0,0); } else { iz += sz; t = mz; mz += dz; face.set(0,0,-sz); } } 
+                else { if (my < mz) { iy += sy; t = my; my += dy; face.set(0,-sy,0); } else { iz += sz; t = mz; mz += dz; face.set(0,0,-sz); } }
+            }
+            return null;
+        }
+
+        function startMining() {
+            if (!currentHit) return;
+            if (gameMode === 'creative') breakBlock();
+            else {
+                let blockDef = BlockDefs[currentHit.id];
+                if (!blockDef || currentHit.id === Blocks.BEDROCK) return;
+                let selected = hotbarSlots[selectedSlotIdx], toolSpeed = 1.0;
+                if (typeof selected === 'string' && blockDef.tool === selected) toolSpeed = Tools[selected].speed;
+                let mineTimeReq = (blockDef.hard / toolSpeed) * 1000;
+                document.getElementById('mine-progress').style.display = 'block'; mineProgress = 0;
+                const updateMine = () => {
+                    mineProgress += 50; document.getElementById('mine-bar').style.width = `${(mineProgress / mineTimeReq) * 100}%`;
+                    if (mineProgress >= mineTimeReq) { breakBlock(); stopMining(); } else { miningTimer = setTimeout(updateMine, 50); }
+                };
+                miningTimer = setTimeout(updateMine, 50);
+            }
+        }
+        function stopMining() { if (miningTimer) { clearTimeout(miningTimer); miningTimer = null; } document.getElementById('mine-progress').style.display = 'none'; }
+        function breakBlock() {
+            if (!currentHit || currentHit.id === Blocks.BEDROCK) return;
+            let id = currentHit.id; updateBlock(currentHit.pos.x, currentHit.pos.y, currentHit.pos.z, Blocks.AIR);
+            if (gameMode === 'survival' && inventory.items[id] !== undefined) { inventory.items[id]++; updateHotbarUI(); }
+            currentHit = null; targetHighlight.visible = false;
+        }
+        function doPlace() {
+            if (!currentHit) return;
+            let selected = hotbarSlots[selectedSlotIdx]; if (typeof selected !== 'number') return; 
+            if (gameMode === 'survival' && inventory.items[selected] <= 0) return; 
+            let nx = currentHit.pos.x + currentHit.normal.x, ny = currentHit.pos.y + currentHit.normal.y, nz = currentHit.pos.z + currentHit.normal.z;
+            const cx = camera.position.x, cy = camera.position.y, cz = camera.position.z;
+            if (Math.abs(nx - cx) < 0.6 && Math.abs(nz - cz) < 0.6 && ny >= (cy - player.height - 0.2) && ny <= cy) return; 
+            updateBlock(nx, ny, nz, selected);
+            if (gameMode === 'survival') { inventory.items[selected]--; updateHotbarUI(); }
+        }
+
+        function getPBox(x, y, z) { return { minX: x-player.radius, maxX: x+player.radius, minY: y-player.height, maxY: y+0.1, minZ: z-player.radius, maxZ: z+player.radius }; }
+        function checkCol(box) {
+            for(let x=Math.floor(box.minX); x<=Math.floor(box.maxX); x++)
+            for(let y=Math.floor(box.minY); y<=Math.floor(box.maxY); y++)
+            for(let z=Math.floor(box.minZ); z<=Math.floor(box.maxZ); z++) {
+                if (getBlock(x,y,z) !== Blocks.AIR) return true;
+            }
+            return false;
+        }
+
+        function updatePhysics(dt) {
+            const fwd = new THREE.Vector3(0,0,-1).applyAxisAngle(new THREE.Vector3(0,1,0), player.yaw);
+            const rgt = new THREE.Vector3(1,0,0).applyAxisAngle(new THREE.Vector3(0,1,0), player.yaw);
+            let mv = new THREE.Vector3().addScaledVector(fwd, input.move.y).addScaledVector(rgt, input.move.x);
+            if (mv.lengthSq() > 0) mv.normalize().multiplyScalar((player.isFlying ? player.flySpeed : player.speed) * dt);
+
+            let pos = camera.position.clone();
+            if (player.isFlying) {
+                pos.x += mv.x; pos.z += mv.z;
+                if (input.flyUp) pos.y += player.flySpeed * dt; if (input.flyDown) pos.y -= player.flySpeed * dt;
+                if (player.jumpBuffer > 0) { player.isFlying=false; player.jumpBuffer=0; document.getElementById('fly-controls').style.display='none';} 
+            } else {
+                let tp = pos.clone(); tp.x += mv.x; if(!checkCol(getPBox(tp.x, pos.y, pos.z))) pos.x = tp.x;
+                tp = pos.clone(); tp.z += mv.z; if(!checkCol(getPBox(pos.x, pos.y, tp.z))) pos.z = tp.z;
+                if (player.jumpBuffer > 0) { player.jumpBuffer -= dt; if (player.onGround) { player.velocity.y = player.jumpForce; player.onGround = false; player.jumpBuffer = 0; } }
+                player.velocity.y -= player.gravity * dt; if(player.velocity.y < -25) player.velocity.y = -25;
+                tp = pos.clone(); tp.y += player.velocity.y * dt;
+                if (checkCol(getPBox(pos.x, tp.y, pos.z))) {
+                    if (player.velocity.y <= 0) { player.onGround = true; pos.y = Math.ceil(tp.y - player.height) + player.height; } 
+                    else { pos.y = Math.floor(tp.y + 0.1) - 0.1; }
+                    player.velocity.y = 0;
+                } else { player.onGround = false; pos.y = tp.y; }
+            }
+            if(pos.y < 0) { pos.y = WORLD_HEIGHT+10; player.velocity.y=0; } 
+            camera.position.copy(pos);
+        }
+
+        let lastT = performance.now(), frames = 0, lastFps = 0;
+        function animate(t) {
+            requestAnimationFrame(animate);
+            let dt = Math.min((t - lastT) / 1000, 0.1); lastT = t;
+            frames++; if (t > lastFps + 1000) { document.getElementById('fps').innerText = frames; frames = 0; lastFps = t; }
+            document.getElementById('coords').innerText = `${Math.floor(camera.position.x)}, ${Math.floor(camera.position.y)}, ${Math.floor(camera.position.z)}`;
+            camera.rotation.set(player.pitch, player.yaw, 0);
+            updateDesktopInput();
+            updatePhysics(dt);
+            let hit = raycast();
+            if (hit) {
+                if (!currentHit || !hit.pos.equals(currentHit.pos)) { stopMining(); currentHit = hit; }
+                targetHighlight.position.copy(hit.pos); targetHighlight.visible = true;
+            } else { if (currentHit) stopMining(); currentHit = null; targetHighlight.visible = false; }
+            // 桌面端按住左键时，对准新方块自动继续挖掘
+            if (isDesktop && desktopInput.mouseLeft && currentHit && !miningTimer) startMining();
+            renderer.render(scene, camera);
+        }
+
+        // ==========================================
+        // 终极安全启动生命周期
+        // ==========================================
+        window.onload = async () => {
+            // 终极防崩溃：确保引擎一定存在后再分配实例
+            if (typeof THREE === 'undefined') {
+                document.getElementById('error-log').innerHTML = "<b>致命网络错误</b><br>无法获取 3D 引擎库 (CDN 被运营商拦截或超时)。<br>建议：切换 WiFi/数据网络，或尝试刷新页面。";
+                return;
+            }
+
+            try {
+                // 将所有依赖 THREE 的实例化移到此处
+                player.velocity = new THREE.Vector3();
+                boxGeo = new THREE.BoxGeometry(1, 1, 1);
+                dummy = new THREE.Object3D();
+
+                document.getElementById('loading-text').innerText = "引擎连接成功，构建材质...";
+                await new Promise(r => setTimeout(r, 50));
+
+                initMaterials(); init3D(); updateHotbarUI(); setupControls();
+
+                await generateWorld();
+                
+                document.getElementById('progress-fill').style.width = '100%';
+                document.getElementById('loading-text').innerText = "地形构建完毕，准备连接光影系统...";
+                await new Promise(r => setTimeout(r, 100)); 
+
+                await meshAllChunks();
+                
+                document.getElementById('loading-text').innerText = "加载成功，欢迎降落！";
+                await new Promise(r => setTimeout(r, 100));
+                
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('fly-controls').style.display = 'flex'; 
+                
+                let spawnY = WORLD_HEIGHT - 1;
+                while(spawnY > 0 && getBlock(WORLD_SIZE/2, spawnY, WORLD_SIZE/2) === Blocks.AIR) spawnY--;
+                camera.position.set(WORLD_SIZE/2, spawnY + player.height + 2, WORLD_SIZE/2);
+                
+                lastT = performance.now();
+                animate(lastT);
+            } catch (err) {
+                document.getElementById('error-log').innerText = "运行时异常: " + err.message;
+                console.error(err);
+            }
+        };
+    </script>
+</body>
+</html>
