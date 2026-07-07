@@ -219,28 +219,24 @@
             font-weight: 700;
             letter-spacing: 0.08em;
             margin-bottom: 0.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.4rem;
         }
 
         .game-card.geometrydash .game-title { color: var(--neon-cyan); }
         .game-card.webcraft .game-title { color: var(--neon-purple); }
 
-        .music-link {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 28px; height: 28px;
-            border-radius: 6px;
-            transition: background-color 0.2s, box-shadow 0.2s;
-            flex-shrink: 0;
+        .game-card.music {
+            --card-glow-from: var(--neon-rose);
+            --card-glow-to: rgba(244,63,94,0.1);
         }
-        .music-link:hover { background: rgba(0,255,204,0.12); box-shadow: 0 0 12px rgba(0,255,204,0.2); }
-        .music-link:focus-visible { outline: 2px solid var(--neon-cyan); outline-offset: 2px; }
-        .music-link svg { width: 16px; height: 16px; fill: var(--neon-cyan); opacity: 0.7; }
-        .music-link:hover svg { opacity: 1; }
+        .game-card.music:hover {
+            border-color: rgba(244,63,94,0.3);
+            box-shadow: 0 0 30px rgba(244,63,94,0.15), 0 8px 32px rgba(0,0,0,0.3);
+        }
+        .game-card.music .game-title { color: var(--neon-rose); }
+        .game-card.music .game-badge {
+            color: var(--neon-rose);
+            border-color: rgba(244,63,94,0.3);
+        }
 
         .game-desc {
             font-family: var(--font-mono);
@@ -344,7 +340,7 @@
                class="game-card geometrydash"
                aria-label="开始 Geometry Dash - Neon Edition 节奏平台跳跃游戏">
                 <span class="game-icon" aria-hidden="true">&#x25B3;</span>
-                <div class="game-title">GEOMETRY DASH<a href="geo_music.html" class="music-link" aria-label="BGM 纯享播放器" onclick="event.stopPropagation();"><svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg></a></div>
+                <div class="game-title">GEOMETRY DASH</div>
                 <div class="game-desc">Neon Edition &mdash; 节奏平台跳跃，跟随电音律动穿越霓虹障碍</div>
                 <span class="game-badge">RHYTHM PLATFORMER</span>
                 <div class="click-hint">点击开始 &rarr;</div>
@@ -357,6 +353,16 @@
                 <div class="game-title">WEBCRAFT</div>
                 <div class="game-desc">Ultimate &mdash; 体素沙盒世界，自由挖掘与建造</div>
                 <span class="game-badge">VOXEL SANDBOX</span>
+                <div class="click-hint">点击开始 &rarr;</div>
+            </a>
+
+            <a href="geo_music.html"
+               class="game-card music"
+               aria-label="Geometry Dash BGM 纯享播放器">
+                <span class="game-icon" aria-hidden="true">&#x266B;</span>
+                <div class="game-title">BGM PLAYER</div>
+                <div class="game-desc">Geometry Dash &mdash; 三档难度原声纯享，霓虹电音随时聆听</div>
+                <span class="game-badge">MUSIC STREAM</span>
                 <div class="click-hint">点击开始 &rarr;</div>
             </a>
         </div>
