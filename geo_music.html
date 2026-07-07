@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0A0A1A">
+    <title>Geometry Dash BGM Player</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0A0A1A;
+            --surface: rgba(255,255,255,0.04);
+            --player: #00FFCC;
+            --purple: #A855F7;
+            --orange: #FF6B35;
+            --text: #FFFFFF;
+            --muted: #A0A0B8;
+            --font-display: 'Orbitron', system-ui, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { color-scheme: dark; }
+        body {
+            min-height: 100vh; min-height: 100dvh;
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--font-mono);
+            display: flex; align-items: center; justify-content: center;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            overflow-x: hidden;
+        }
+        .container {
+            width: 100%; max-width: 480px;
+            padding: 32px 24px;
+            display: flex; flex-direction: column; align-items: center; gap: 32px;
+        }
+        .header { text-align: center; }
+        .title {
+            font-family: var(--font-display);
+            font-size: 28px; font-weight: 900;
+            background: linear-gradient(135deg, #00FFCC, #A855F7, #FF6B35);
+            -webkit-background-clip: text; background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 3px; text-transform: uppercase;
+        }
+        .subtitle {
+            font-family: var(--font-mono);
+            color: var(--muted);
+            font-size: 12px; letter-spacing: 2px; margin-top: 6px;
+        }
+        .back-link {
+            font-family: var(--font-mono);
+            font-size: 12px; color: var(--muted);
+            text-decoration: none; transition: color 0.2s;
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 4px;
+        }
+        .back-link:hover { color: var(--player); }
+        .back-link:focus-visible { outline: 2px solid var(--player); outline-offset: 4px; }
+
+        .player-card {
+            width: 100%; background: var(--surface);
+            border: 1px solid rgba(255,255,255,0.08); border-radius: 20px;
+            padding: 32px 28px; display: flex; flex-direction: column; gap: 28px;
+        }
+        .track-info { text-align: center; }
+        .track-label {
+            font-family: var(--font-display);
+            font-size: 16px; font-weight: 700; letter-spacing: 2px;
+            color: var(--player); text-transform: uppercase; transition: color 0.3s;
+        }
+        .track-bpm {
+            font-family: var(--font-mono);
+            font-size: 13px; color: var(--muted); margin-top: 4px;
+        }
+        .track-selector { display: flex; gap: 10px; justify-content: center; }
+        .track-btn {
+            flex: 1; max-width: 140px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.12);
+            color: var(--muted);
+            font-family: var(--font-display);
+            font-size: 13px; font-weight: 700;
+            padding: 12px 16px; border-radius: 10px;
+            cursor: pointer; letter-spacing: 1px;
+            transition: border-color 0.2s, color 0.2s, background-color 0.2s, box-shadow 0.2s;
+            text-transform: uppercase; touch-action: manipulation;
+        }
+        .track-btn:hover { border-color: rgba(255,255,255,0.3); color: #fff; }
+        .track-btn:focus-visible { outline: 2px solid var(--player); outline-offset: 2px; }
+        .track-btn.active-0 { border-color: var(--player); color: var(--player); box-shadow: 0 0 16px rgba(0,255,204,0.2); background: rgba(0,255,204,0.08); }
+        .track-btn.active-1 { border-color: var(--purple); color: var(--purple); box-shadow: 0 0 16px rgba(168,85,247,0.2); background: rgba(168,85,247,0.08); }
+        .track-btn.active-2 { border-color: var(--orange); color: var(--orange); box-shadow: 0 0 16px rgba(255,107,53,0.2); background: rgba(255,107,53,0.08); }
+
+        .controls { display: flex; align-items: center; justify-content: center; gap: 20px; }
+        .play-btn {
+            width: 72px; height: 72px; border-radius: 50%;
+            border: 2px solid var(--player); background: rgba(0,255,204,0.08);
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: border-color 0.2s, background-color 0.2s, box-shadow 0.2s, transform 0.2s;
+            touch-action: manipulation;
+        }
+        .play-btn:hover { background: rgba(0,255,204,0.15); box-shadow: 0 0 28px rgba(0,255,204,0.25); }
+        .play-btn:active { transform: scale(0.94); }
+        .play-btn:focus-visible { outline: 2px solid var(--player); outline-offset: 4px; }
+        .play-btn svg { width: 28px; height: 28px; fill: var(--player); }
+        .play-btn.playing { border-color: var(--purple); background: rgba(168,85,247,0.08); }
+        .play-btn.playing:hover { box-shadow: 0 0 28px rgba(168,85,247,0.25); }
+        .play-btn.playing svg { fill: var(--purple); }
+
+        .viz {
+            width: 100%; height: 48px;
+            display: flex; align-items: flex-end; justify-content: center; gap: 3px;
+        }
+        .viz-bar {
+            width: 6px; border-radius: 3px; background: var(--player);
+            transition: height 0.12s ease-out, opacity 0.3s;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .viz-bar { transition: none; }
+            .play-btn { transition: none; }
+        }
+        @media (max-width: 400px) {
+            .container { padding: 20px 16px; gap: 24px; }
+            .player-card { padding: 24px 18px; gap: 22px; }
+            .play-btn { width: 60px; height: 60px; }
+            .play-btn svg { width: 24px; height: 24px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="title">BGM Player</div>
+            <div class="subtitle">Geometry Dash Neon Edition</div>
+            <a href="Geometrydash.html" class="back-link">&larr; Back to Game</a>
+        </div>
+        <div class="player-card">
+            <div class="track-info">
+                <div class="track-label" id="trackLabel">Normal</div>
+                <div class="track-bpm" id="trackBpm">128 BPM</div>
+            </div>
+            <div class="track-selector" role="radiogroup" aria-label="Track selection">
+                <button class="track-btn active-0" data-diff="0" role="radio" aria-checked="false">Easy</button>
+                <button class="track-btn active-1" data-diff="1" role="radio" aria-checked="true">Normal</button>
+                <button class="track-btn" data-diff="2" role="radio" aria-checked="false">Hard</button>
+            </div>
+            <div class="controls">
+                <button class="play-btn" id="playBtn" aria-label="Play music">
+                    <svg id="iconPlay" viewBox="0 0 24 24"><polygon points="6,3 20,12 6,21"/></svg>
+                    <svg id="iconPause" viewBox="0 0 24 24" style="display:none"><rect x="5" y="3" width="5" height="18"/><rect x="14" y="3" width="5" height="18"/></svg>
+                </button>
+            </div>
+            <div class="viz" id="viz"></div>
+        </div>
+    </div>
+    <script>
+    (function() {
+        class SoundEngine {
+            constructor() { this.ctx = null; this.masterGain = null; this._init(); }
+            _init() {
+                try {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    this.masterGain = this.ctx.createGain();
+                    this.masterGain.gain.value = 0.4;
+                    this.masterGain.connect(this.ctx.destination);
+                } catch (_) {}
+            }
+            resume() { if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume().catch(() => {}); }
+            _note(freq, dur, vol, type) {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+                osc.type = type || 'sine';
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                gain.gain.setValueAtTime(Math.min(vol, 0.3), this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + dur);
+                osc.connect(gain); gain.connect(this.masterGain);
+                osc.start(this.ctx.currentTime); osc.stop(this.ctx.currentTime + dur);
+            }
+            _noise(dur, vol) {
+                if (!this.ctx) return;
+                try {
+                    const sr = this.ctx.sampleRate, buf = this.ctx.createBuffer(1, sr * dur, sr);
+                    const d = buf.getChannelData(0);
+                    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+                    const src = this.ctx.createBufferSource(); src.buffer = buf;
+                    const gain = this.ctx.createGain(), hp = this.ctx.createBiquadFilter();
+                    hp.type = 'highpass'; hp.frequency.value = 800;
+                    gain.gain.value = 0;
+                    gain.gain.linearRampToValueAtTime(vol, this.ctx.currentTime + 0.002);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + dur);
+                    src.connect(hp); hp.connect(gain); gain.connect(this.masterGain);
+                    src.start(this.ctx.currentTime); src.stop(this.ctx.currentTime + dur);
+                } catch (_) {}
+            }
+        }
+
+        const sound = new SoundEngine();
+        const SCALE = [220.00, 261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33];
+        const CHORDS = [110.00, 87.31, 130.81, 98.00];
+
+        const MUSIC = [
+            { bpm: 100, label: 'Easy',
+                melodies: [
+                    [null,0,null,null, 0,null,null,null, null,1,null,null, 1,null,null,null],
+                    [null,null,2,null, null,1,null,null, null,null,0,null, 0,null,null,null],
+                    [null,1,null,2, null,null,3,null, null,2,null,1, null,0,null,null],
+                ], basses: [
+                    [0,null,null,null, 0,null,null,null, 1,null,null,null, 1,null,null,null],
+                    [2,null,null,null, 2,null,null,null, 3,null,null,null, 3,null,null,null],
+                ], kicks: [[5,null,null,null, 5,null,null,null, 5,null,null,null, 5,null,3,null]],
+                snares: [[null,null,null,null, 5,null,null,null, null,null,null,null, 5,null,null,null]],
+                hats: [[3,3,3,3,3,3,3,3, 3,3,3,3,3,3,3,3]],
+            },
+            { bpm: 128, label: 'Normal',
+                melodies: [
+                    [null,0,null,1, null,2,null,null, 0,null,1,null, 2,1,null,0],
+                    [null,null,3,2, null,1,0,null, null,2,null,3, null,4,3,null],
+                    [0,1,null,null, 2,3,null,4, null,3,2,1, 0,null,null,null],
+                    [4,null,3,2, null,1,null,0, null,null,3,2, 1,null,0,null],
+                    [null,2,1,null, 0,null,null,3, 2,null,1,null, 0,3,2,null],
+                    [0,null,null,3, null,2,1,null, 0,null,2,null, 3,4,null,2],
+                ], basses: [
+                    [0,null,null,null, 0,null,null,null, 1,null,null,null, 1,null,null,null],
+                    [2,null,null,null, 2,null,null,null, 3,null,null,null, 3,null,null,null],
+                    [0,null,null,1, 2,null,null,1, 0,null,1,null, 2,null,3,null],
+                ], kicks: [
+                    [7,null,null,null, 7,null,null,4, 7,null,null,5, 7,5,7,null],
+                    [7,null,null,null, 7,null,null,null, 7,null,5,null, 7,5,4,4],
+                    [7,null,null,4, 7,4,5,null, 7,null,5,null, 7,5,4,3],
+                ], snares: [
+                    [null,null,null,null, 7,null,null,3, null,null,null,null, 7,2,null,4],
+                    [null,null,null,3, 7,null,null,null, null,null,null,5, 7,4,4,null],
+                    [null,2,null,null, 7,3,null,4, null,null,5,null, 7,4,6,5],
+                ], hats: [
+                    [4,4,6,4,4,6,4,4, 4,4,6,4,4,6,4,4],
+                    [4,4,6,4,4,6,4,6, 4,4,6,4,4,4,6,6],
+                    [4,6,4,4,6,4,4,6, 4,4,6,6,4,4,6,4],
+                ],
+            },
+            { bpm: 145, label: 'Hard',
+                melodies: [
+                    [0,null,1,2, null,3,2,null, 1,0,null,2, null,3,null,4],
+                    [null,2,null,null, 3,4,3,null, 1,null,2,3, null,1,0,null],
+                    [4,3,null,2, 1,null,0,1, 2,3,null,4, 3,2,1,null],
+                    [0,1,2,3, 4,3,2,1, null,0,2,null, 3,1,0,null],
+                ], basses: [
+                    [0,null,0,null, 1,null,null,1, 2,null,null,null, 3,null,2,null],
+                    [0,null,null,null, 1,null,0,null, 2,null,3,2, 0,null,1,null],
+                ], kicks: [
+                    [7,null,4,5, 7,null,5,null, 7,4,5,null, 7,5,4,5],
+                    [7,4,5,null, 7,5,4,4, 7,null,5,4, 7,5,4,3],
+                ], snares: [
+                    [null,3,null,4, 7,null,5,null, null,4,null,null, 7,5,4,5],
+                    [null,4,5,null, 7,3,4,5, null,4,null,3, 7,6,5,4],
+                ], hats: [
+                    [6,4,6,4,6,6,4,6, 6,4,6,6,4,6,6,4],
+                    [6,6,4,6,6,4,6,6, 6,4,6,6,4,6,4,6],
+                ],
+            },
+        ];
+
+        let diff = 1, playing = false;
+        let step = 0, bar = 0, lastStep = 0;
+        let melA = 0, bassA = 0, chordA = 0, drumA = 0, rid = null;
+        const playBtn = document.getElementById('playBtn');
+        const iconPlay = document.getElementById('iconPlay');
+        const iconPause = document.getElementById('iconPause');
+        const trackLabel = document.getElementById('trackLabel');
+        const trackBpm = document.getElementById('trackBpm');
+        const viz = document.getElementById('viz');
+
+        for (let i = 0; i < 32; i++) { const b = document.createElement('div'); b.className = 'viz-bar'; b.style.height = '4px'; b.style.opacity = '0.3'; viz.appendChild(b); }
+        const vizBars = viz.querySelectorAll('.viz-bar');
+
+        document.querySelectorAll('.track-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const d = parseInt(btn.dataset.diff);
+                if (d === diff) return;
+                document.querySelectorAll('.track-btn').forEach(b => { b.className = 'track-btn'; b.setAttribute('aria-checked', 'false'); });
+                btn.classList.add('active-' + d); btn.setAttribute('aria-checked', 'true');
+                diff = d;
+                if (playing) { stop(); start(); }
+                updateUI();
+            });
+        });
+
+        function updateUI() {
+            const c = MUSIC[diff];
+            trackLabel.textContent = c.label;
+            trackLabel.style.color = diff === 0 ? '#00FFCC' : diff === 1 ? '#A855F7' : '#FF6B35';
+            trackBpm.textContent = c.bpm + ' BPM';
+            playBtn.className = 'play-btn' + (playing ? ' playing' : '');
+        }
+
+        playBtn.addEventListener('click', () => { sound.resume(); playing ? stop() : start(); });
+
+        function start() {
+            playing = true; step = 0; bar = 0; lastStep = performance.now();
+            melA = 0; bassA = 0; chordA = 0; drumA = 0;
+            playBtn.classList.add('playing');
+            iconPlay.style.display = 'none'; iconPause.style.display = 'block';
+            playBtn.setAttribute('aria-label', 'Pause music');
+            updateUI(); tick(performance.now());
+        }
+        function stop() {
+            playing = false; if (rid) cancelAnimationFrame(rid); rid = null;
+            playBtn.classList.remove('playing');
+            iconPlay.style.display = 'block'; iconPause.style.display = 'none';
+            playBtn.setAttribute('aria-label', 'Play music');
+            for (let i = 0; i < vizBars.length; i++) { vizBars[i].style.height = '4px'; vizBars[i].style.opacity = '0.3'; }
+        }
+
+        function tick(now) {
+            if (!playing) return;
+            rid = requestAnimationFrame(tick);
+            const c = MUSIC[diff], sm = 60000 / c.bpm / 4;
+            if (now - lastStep >= sm) {
+                lastStep += sm;
+                if (lastStep < now - sm * 2) lastStep = now;
+                const kick = c.kicks[drumA][step], snare = c.snares[drumA][step], hat = c.hats[drumA][step];
+                const mel = c.melodies[melA][step], bs = c.basses[bassA][step];
+                if (kick) { sound._note(55, 0.09, kick/70, 'sine'); sound._note(42, 0.07, kick/140, 'triangle'); }
+                if (snare) { sound._noise(0.07, snare/80); sound._note(200, 0.04, snare/200, 'sine'); }
+                if (hat) sound._noise(0.022, hat/200);
+                if (step === 0 || step === 8) {
+                    sound._note(CHORDS[chordA], 0.45, 0.055, 'sine');
+                    sound._note(CHORDS[chordA] * 1.5, 0.45, 0.025, 'sine');
+                }
+                if (step === 4 || step === 12) sound._note(CHORDS[chordA] * 1.5, 0.3, 0.035, 'sine');
+                if (bs != null) sound._note(CHORDS[bs] || 110, 0.18, 0.07, 'triangle');
+                if (mel != null) { const f = SCALE[mel % SCALE.length]; if (f) sound._note(f, 0.12, 0.06, 'sawtooth'); }
+                step++;
+                if (step >= 16) {
+                    step = 0; bar++;
+                    if (bar % 4 === 0) chordA = (chordA + 1) % 4;
+                    if (bar % 8 === 0) {
+                        melA = (melA + 1) % c.melodies.length;
+                        bassA = (bassA + 1) % c.basses.length;
+                        drumA = (drumA + 1) % c.kicks.length;
+                    }
+                }
+                for (let i = 0; i < 4; i++) {
+                    const idx = Math.floor(step / 4) * 8 + i * 2;
+                    if (idx < vizBars.length) {
+                        const isK = c.kicks[drumA][step] > 0, isS = c.snares[drumA][step] > 0;
+                        vizBars[idx].style.height = (isK ? 40 + Math.random() * 8 : isS ? 28 + Math.random() * 8 : 12 + Math.random() * 16) + 'px';
+                        vizBars[idx].style.opacity = isK ? '1' : isS ? '0.8' : '0.5';
+                    }
+                }
+            }
+        }
+
+        document.addEventListener('click', () => sound.resume(), { once: true });
+        document.addEventListener('touchstart', () => sound.resume(), { once: true, passive: true });
+        updateUI();
+    })();
+    </script>
+</body>
+</html>
