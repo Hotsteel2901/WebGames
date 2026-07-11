@@ -238,6 +238,20 @@
             border-color: rgba(244,63,94,0.3);
         }
 
+        .game-card.match3 {
+            --card-glow-from: var(--neon-purple);
+            --card-glow-to: rgba(244,63,94,0.1);
+        }
+        .game-card.match3:hover {
+            border-color: rgba(168,85,247,0.3);
+            box-shadow: 0 0 30px rgba(168,85,247,0.15), 0 8px 32px rgba(0,0,0,0.3);
+        }
+        .game-card.match3 .game-title { color: var(--neon-purple); }
+        .game-card.match3 .game-badge {
+            color: var(--neon-purple);
+            border-color: rgba(168,85,247,0.3);
+        }
+
         .game-desc {
             font-family: var(--font-mono);
             font-size: 0.75rem;
@@ -363,6 +377,16 @@
                 <div class="game-title">BGM PLAYER</div>
                 <div class="game-desc">Geometry Dash &mdash; 三档难度原声纯享，霓虹电音随时聆听</div>
                 <span class="game-badge">MUSIC STREAM</span>
+                <div class="click-hint">点击开始 &rarr;</div>
+            </a>
+
+            <a href="xiaoxiaole.html"
+               class="game-card match3"
+               aria-label="开始 消消乐 三消益智游戏">
+                <span class="game-icon" aria-hidden="true">&#x1F48E;</span>
+                <div class="game-title">消消乐</div>
+                <div class="game-desc">Match 3 &mdash; 交换相邻宝石，消除三连成就连锁爆发</div>
+                <span class="game-badge">MATCH PUZZLE</span>
                 <div class="click-hint">点击开始 &rarr;</div>
             </a>
         </div>
