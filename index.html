@@ -280,6 +280,20 @@
             border-color: rgba(14,165,233,0.3);
         }
 
+        .game-card.djmusic {
+            --card-glow-from: #FF2D95;
+            --card-glow-to: rgba(255,45,149,0.1);
+        }
+        .game-card.djmusic:hover {
+            border-color: rgba(255,45,149,0.3);
+            box-shadow: 0 0 30px rgba(255,45,149,0.15), 0 8px 32px rgba(0,0,0,0.3);
+        }
+        .game-card.djmusic .game-title { color: #FF2D95; }
+        .game-card.djmusic .game-badge {
+            color: #FF2D95;
+            border-color: rgba(255,45,149,0.3);
+        }
+
         .game-desc {
             font-family: var(--font-mono);
             font-size: 0.75rem;
@@ -435,6 +449,16 @@
                 <div class="game-title">地铁跑酷</div>
                 <div class="game-desc">3D网页复刻 &mdash; 躲避列车路障、吃金币拾道具、摆脱督察追击</div>
                 <span class="game-badge">3D ENDLESS RUN</span>
+                <div class="click-hint">点击开始 &rarr;</div>
+            </a>
+
+            <a href="DJ_music.html"
+               class="game-card djmusic"
+               aria-label="打开 DJ 电音台 五首原创全长电音">
+                <span class="game-icon" aria-hidden="true">&#x1F3A7;</span>
+                <div class="game-title">DJ 电音台</div>
+                <div class="game-desc">5 首原创全长电音 &mdash; House / Dubstep / Trance / DnB / Synthwave 全段落编曲</div>
+                <span class="game-badge">5 TRACKS &middot; FULL MIX</span>
                 <div class="click-hint">点击开始 &rarr;</div>
             </a>
         </div>
