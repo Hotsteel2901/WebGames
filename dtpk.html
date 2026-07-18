@@ -848,22 +848,41 @@ const LEAD = [
   81,0,76,0,72,0,76,0,  77,76,74,72,69,0,67,0
 ];
 const BASSROOT = [36,43,33,41];
+const ARP = [0,7,12,7];
 const midiHz = m => 440*Math.pow(2,(m-69)/12);
-const STEP = 60/132/2;
 let mNext = 0, mStep = 0;
 function musicTick(){
   if(!actx || muted) return;
   if(mode !== 'play' && mode !== 'menu' && mode !== 'dead'){ mNext = actx.currentTime; return; }
+  const hot = mode === 'play' ? clamp((speed-12)/14, 0, 1) : 0;
+  const bpm = 156 + 24*hot;
+  const step = 60/bpm/2;
   if(mNext < actx.currentTime) mNext = actx.currentTime + 0.05;
   while(mNext < actx.currentTime + 0.15){
-    const s = mStep % 64, t = mNext, bar = (s>>3) % 4;
-    if(s % 4 === 0) osc('sine', 140, 44, t, .1, .32);
-    noise(t, .03, s%2 ? .05 : .028, 7000, 0);
+    const s = mStep % 64, t = mNext, bar = (s>>3) % 4, half = step/2;
+    if(s % 4 === 0){ osc('sine', 165, 40, t, .12, .5); noise(t, .02, .12, 0, 400); }
+    if(s % 8 === 4){ noise(t, .09, .22, 1500, 0); osc('triangle', 190, 120, t, .07, .12); }
+    noise(t, .025, s%2 ? .07 : .04, 6500, 0);
+    noise(t+half, .02, .03, 8000, 0);
+    if(s % 4 === 2) noise(t, .09, .05, 9000, 0);
     const b = BASSROOT[bar] + (s%2 ? 12 : 0);
-    osc('triangle', midiHz(b), midiHz(b), t, .19, .1);
+    osc('sawtooth', midiHz(b), midiHz(b), t, .16, .09);
+    osc('sine', midiHz(b-12), midiHz(b-12), t, .18, .12);
     const n = LEAD[s];
-    if(n) osc('square', midiHz(n), midiHz(n), t, .16, .055);
-    mStep++; mNext += STEP;
+    if(n){
+      osc('square', midiHz(n), midiHz(n), t, .15, .06);
+      osc('sawtooth', midiHz(n)*1.007, midiHz(n)*1.007, t, .13, .035);
+      osc('square', midiHz(n+12), midiHz(n+12), t+step*1.5, .1, .02);
+    }
+    if(hot > 0.35 && s%2 === 1){
+      const a = BASSROOT[bar] + 24 + ARP[(s>>1)%4];
+      osc('square', midiHz(a), midiHz(a), t, .07, .03*hot);
+    }
+    if(s >= 56){
+      if(s%2 === 0) noise(t, .05, .1 + (s-56)*.015, 1800, 0);
+      noise(t, step, .015 + (s-56)*.003, 3000 + (s-56)*600, 0);
+    }
+    mStep++; mNext += step;
   }
 }
 
