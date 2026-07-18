@@ -294,6 +294,20 @@
             border-color: rgba(255,45,149,0.3);
         }
 
+        .game-card.jazz {
+            --card-glow-from: #E9B44C;
+            --card-glow-to: rgba(233,180,76,0.1);
+        }
+        .game-card.jazz:hover {
+            border-color: rgba(233,180,76,0.3);
+            box-shadow: 0 0 30px rgba(233,180,76,0.15), 0 8px 32px rgba(0,0,0,0.3);
+        }
+        .game-card.jazz .game-title { color: #E9B44C; }
+        .game-card.jazz .game-badge {
+            color: #E9B44C;
+            border-color: rgba(233,180,76,0.3);
+        }
+
         .game-desc {
             font-family: var(--font-mono);
             font-size: 0.75rem;
@@ -459,6 +473,16 @@
                 <div class="game-title">DJ 电音台</div>
                 <div class="game-desc">5 首原创全长电音 &mdash; House / Dubstep / Trance / DnB / Synthwave 全段落编曲</div>
                 <span class="game-badge">5 TRACKS &middot; FULL MIX</span>
+                <div class="click-hint">点击开始 &rarr;</div>
+            </a>
+
+            <a href="jazz_music.html"
+               class="game-card jazz"
+               aria-label="打开 Jazz Lounge 五首原创爵士乐">
+                <span class="game-icon" aria-hidden="true">&#x1F3B7;</span>
+                <div class="game-title">JAZZ LOUNGE</div>
+                <div class="game-desc">5 首原创爵士 &mdash; Bebop / Bossa / Ballad / 3拍华尔兹 / 布鲁斯，和弦谱驱动虚拟五重奏</div>
+                <span class="game-badge">5 PIECES &middot; LIVE QUINTET</span>
                 <div class="click-hint">点击开始 &rarr;</div>
             </a>
         </div>
