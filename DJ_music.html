@@ -438,7 +438,11 @@ function stab(t,notes,dur,v){
   send(g,B.dl,0.14);
 }
 function pad(t,notes,dur,v,bright){
-  var lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=bright||1350; lp.Q.value=0.6;
+  var bf=bright||1350;
+  var lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.Q.value=0.6;
+  lp.frequency.setValueAtTime(bf*0.5,t);
+  lp.frequency.linearRampToValueAtTime(bf,t+Math.min(1.4,dur*0.45));
+  lp.frequency.linearRampToValueAtTime(bf*0.6,t+dur+0.6);
   var g=ctx.createGain();
   var att=Math.min(1.0,dur*0.28);
   g.gain.setValueAtTime(0.0001,t);
@@ -556,6 +560,19 @@ function fall(t,dur,v){
   send(g,B.vb,0.3);
   s.start(t); s.stop(t+dur+0.05);
 }
+function revcym(t,dur,v){
+  var s=ctx.createBufferSource(); s.buffer=noiseBuf; s.loop=true;
+  var hp=ctx.createBiquadFilter(); hp.type='highpass';
+  hp.frequency.setValueAtTime(1300,t);
+  hp.frequency.exponentialRampToValueAtTime(6200,t+dur);
+  var g=ctx.createGain();
+  g.gain.setValueAtTime(0.0001,t);
+  g.gain.exponentialRampToValueAtTime(v,t+dur*0.85);
+  g.gain.linearRampToValueAtTime(0.0001,t+dur+0.05);
+  s.connect(hp); hp.connect(g); g.connect(B.out);
+  send(g,B.vb,0.45);
+  s.start(t); s.stop(t+dur+0.1);
+}
 function impact(t,v){
   var o=ctx.createOscillator(),g=ctx.createGain();
   o.type='sine';
@@ -589,6 +606,16 @@ function phr(e,mel,cb){
   for(var i=0;i<mel.length;i++) if(mel[i][0]===pos) cb(mel[i][1],mel[i][2]*e.sd,mel[i]);
 }
 function sec(name,bars,fn){ return {name:name,bars:bars,fn:fn}; }
+function below(n,ch){
+  var best=n-12;
+  for(var i=0;i<ch.length;i++){
+    var c=ch[i];
+    while(c>=n) c-=12;
+    while(c<n-12) c+=12;
+    if(c>best) best=c;
+  }
+  return best;
+}
 
 /* ================================================================
    TRACK 1 · NEON SKYLINE 霓虹天际线 · Progressive House · 124 BPM
@@ -611,7 +638,7 @@ var S1=(function(){
     if(e.s%4===0) kick(e.t,1,0.5,0.28);
     if(e.s===4||e.s===12) clap(e.t,0.85);
     if(e.s%4===2) hat(e.t,0.12,true);
-    hat(e.t,e.s%2?0.05:0.028);
+    hat(e.t,(e.s%2?0.05:0.028)*(0.85+rnd(e.bar*16+e.s,5)*0.3));
     if(ridez&&e.s%2===0) ride(e.t,0.05);
     if(e.b%8===7&&e.s>=8&&e.s%2===0) snare(e.t,0.35+e.s*0.02);
     if(e.b%8===0&&e.s===0) crash(e.t,0.22);
@@ -620,6 +647,7 @@ var S1=(function(){
     var r=ROOT[e.bar%4];
     if(e.s===0) sub(e.t,r,e.sd*7,0.16);
     if(e.s===2||e.s===6||e.s===10||e.s===14) bass(e.t,r,0.24,0.15);
+    if(e.s===15&&e.bar%2===1) bass(e.t,ROOT[(e.bar+1)%4],0.13,0.08);
     if(fill&&e.b%4===3&&(e.s===13||e.s===15)) bass(e.t,r+12,0.14,0.12);
   }
   function stabs(e,alt){
@@ -627,11 +655,12 @@ var S1=(function(){
     var hits=alt?[3,7,11,14]:[2,7,10];
     if(hits.indexOf(e.s)>=0) stab(e.t,ch,0.26,e.s===7?0.09:0.065);
   }
-  function melody(e,seq,v,fat){
+  function melody(e,seq,v,fat,h){
     var mel=MELS[seq[(e.b>>1)%seq.length]];
     phr(e,mel,function(n,dur){
       lead(e.t,n,dur,v,{fat:fat,echo:0.32});
       if(fat) lead(e.t,n+12,dur,v*0.35,{echo:0.15,att:0.02});
+      if(h) lead(e.t,below(n,CH[e.bar%4]),dur,v*0.4,{echo:0.2,att:0.025});
     });
   }
   return {
@@ -643,27 +672,34 @@ var S1=(function(){
         if(e.s===0) sub(e.t,ROOT[e.bar%4],e.sd*15,0.1);
         if(e.s%2===0&&e.b>=2) arp(e,0.022+e.b*0.003,0);
         if(e.s%4===2) shaker(e.t,0.05);
+        if(e.b>=4&&e.s%2===0) hat(e.t,0.012+e.b*0.002);
         if(e.b>=6&&e.s%8===4) clap(e.t,0.3);
+        if(e.b===7&&e.s===0) revcym(e.t,e.sd*16,0.08);
       }),
       sec('推进',8,function(e){
-        if(e.s%4===0) kick(e.t,0.9,0.45,0.28);
-        if(e.b>=2&&(e.s===4||e.s===12)) clap(e.t,0.6);
-        if(e.s%2===0) hat(e.t,0.04);
-        if(e.s%2===0) arp(e,0.04,0);
+        var gap=e.b===7&&e.s>=12;
+        if(e.s%4===0&&!gap) kick(e.t,0.9,0.45,0.28);
+        if(e.b>=2&&(e.s===4||e.s===12)&&!gap) clap(e.t,0.6);
+        if(e.s%2===0&&!gap) hat(e.t,0.04);
+        if(e.s%2===0&&!gap) arp(e,0.04,0);
         if(e.s===2||e.s===10) bass(e.t,ROOT[e.bar%4],0.22,0.11);
         if(e.s===0) pad(e.t,CH[e.bar%4],e.sd*16,0.045,1400);
         if(e.b===4&&e.s===0) riser(e.t,e.sd*64,0.16);
+        if(e.b===6&&e.s===0) revcym(e.t,e.sd*30,0.11);
         if(e.b===6&&e.s%4===0) snare(e.t,0.4);
-        if(e.b===7&&e.s%2===0) snare(e.t,0.35+e.s*0.025);
-        if(e.b===7&&e.s>=12) snare(e.t,0.5);
+        if(e.b===7&&e.s<=11&&e.s%2===0) snare(e.t,0.38+e.s*0.03);
+        if(e.b===7&&e.s===12) zap(e.t,1500,190,0.1);
       }),
       sec('DROP A',16,function(e){
+        if(e.b===0&&e.s===0) impact(e.t,0.55);
         drums(e,false);
         bassline(e,true);
         stabs(e,false);
         melody(e,[0,0,1,0],0.075,false);
-        if(e.s%2===1) arp(e,0.02,12);
+        if(e.s%2===1) arp(e,e.b>=8?0.03:0.02,12);
+        if(e.b>=8&&e.s%4===2) shaker(e.t,0.05);
         if(e.b%8===7&&e.s===0) fall(e.t,e.sd*14,0.08);
+        if(e.b===15&&e.s>=10&&e.s%2===0) snare(e.t,0.28+e.s*0.02);
       }),
       sec('变奏',8,function(e){
         drums(e,true);
@@ -676,32 +712,42 @@ var S1=(function(){
         if(e.s===0) pad(e.t,CH[e.bar%4],e.sd*16,0.065,1800);
         if(e.s===0) sub(e.t,ROOT[e.bar%4],e.sd*15,0.12);
         var mel=MELS[(e.b>>1)%2];
-        phr(e,mel,function(n,dur){ bell(e.t,n,dur*2.2,0.1); });
+        phr(e,mel,function(n,dur){
+          bell(e.t,n,dur*2.2,0.1);
+          if(e.b>=4) lead(e.t,n,dur,0.022,{echo:0.4,att:0.06,duck:true});
+        });
         if(e.s%4===2) shaker(e.t,0.045);
         if(e.s%2===0&&e.b>=4) arp(e,0.024,0);
+        if(e.b===7&&e.s===0) revcym(e.t,e.sd*16,0.07);
       }),
       sec('推进 II',8,function(e){
+        var gap=e.b===7&&e.s>=13;
         if(e.s===0) pad(e.t,CH[e.bar%4],e.sd*16,0.05,1500);
-        if(e.s%2===0) hat(e.t,0.04);
-        if(e.b>=2&&e.s%4===0) kick(e.t,0.9,0.45,0.28);
-        if(e.s%2===0) arp(e,0.04,12);
+        if(e.s%2===0&&!gap) hat(e.t,0.04);
+        if(e.b>=2&&e.s%4===0&&!gap) kick(e.t,0.9,0.45,0.28);
+        if(e.s%2===0&&!gap) arp(e,0.04,12);
+        if(e.s===2||e.s===10) bass(e.t,ROOT[e.bar%4],0.22,0.1);
         if(e.b===4&&e.s===0) riser(e.t,e.sd*64,0.18);
+        if(e.b===6&&e.s===0) revcym(e.t,e.sd*30,0.12);
         if(e.b===6&&e.s%2===0) snare(e.t,0.4);
-        if(e.b===7) snare(e.t,0.3+e.s*0.022);
-        if(e.b===7&&e.s===15) zap(e.t,1800,220,0.1);
+        if(e.b===7&&e.s<=12) snare(e.t,0.3+e.s*0.03);
+        if(e.b===7&&e.s===13) zap(e.t,1800,220,0.12);
       }),
       sec('DROP B',16,function(e){
+        if(e.b===0&&e.s===0){ impact(e.t,0.6); crash(e.t,0.24); }
         drums(e,false);
         bassline(e,true);
         stabs(e,true);
-        melody(e,[1,0,2,1],0.08,false);
+        melody(e,[1,0,2,1],0.08,false,e.b>=8);
         if(e.s%2===1) arp(e,0.026,12);
+        if(e.b>=8&&e.s%2===0) ride(e.t,0.03);
         if(e.b%4===3&&e.s===15) bass(e.t,ROOT[e.bar%4]+12,0.12,0.12);
+        if(e.b===15&&e.s>=8&&e.s%2===0) snare(e.t,0.3+e.s*0.02);
       }),
       sec('终章',8,function(e){
         drums(e,true);
         bassline(e,true);
-        melody(e,[2,2,2,2],0.08,true);
+        melody(e,[2,2,2,2],0.08,true,true);
         if(e.s%2===0) arp(e,0.03,12);
         if(e.b%4===0&&e.s===0) crash(e.t,0.25);
       }),
@@ -745,7 +791,7 @@ var S2=(function(){
     if(e.s===0) kick(e.t,1,0.5,0.22);
     if(extra&&e.b%4===3&&e.s===10) kick(e.t,0.8,0.3,0.18);
     if(e.s===8){ snare(e.t,1); clap(e.t,0.5,0.45); pump(e.t,0.4,0.2); }
-    if(e.s%2===0) hat(e.t,e.s%4===0?0.05:0.028);
+    if(e.s%2===0) hat(e.t,(e.s%4===0?0.05:0.028)*(0.85+rnd(e.bar*16+e.s,7)*0.3));
     if(e.s===11&&e.b%2===1) hat(e.t,0.06,true);
     if(e.s===14&&e.b%4===3) shaker(e.t,0.08);
     if(e.b%8===0&&e.s===0) crash(e.t,0.24);
@@ -763,6 +809,7 @@ var S2=(function(){
           if(e.s===11) pluck(e.t,71,0.6,0.05,0.4);
         }
         if(e.s===8&&e.b>=4) snare(e.t,0.25);
+        if(e.b===7&&e.s===0) revcym(e.t,e.sd*16,0.07);
       }),
       sec('暗涌律动',8,function(e){
         halfDrums(e,false);
@@ -770,22 +817,28 @@ var S2=(function(){
         if(e.s===12&&e.b%2===1) sub(e.t,31,e.sd*3,0.12);
         if(e.s===0&&e.b%4===0) pad(e.t,[52,55,59,64],e.sd*64,0.05,900);
         if(e.b%2===0&&e.s===6) pluck(e.t,64,0.4,0.05,0.35);
+        if(e.b>=4&&e.b%2===1&&e.s===14) wob(e.t,40,e.sd*2,8,0.05);
       }),
       sec('推进',8,function(e){
-        if(e.s%4===0) kick(e.t,0.85,0.35,0.2);
-        if(e.s%2===0) hat(e.t,0.04);
+        var gap=e.b===7&&e.s>=12;
+        if(e.s%4===0&&!gap) kick(e.t,0.85,0.35,0.2);
+        if(e.s%2===0&&!gap) hat(e.t,0.04);
         if(e.b<4&&e.s===8) snare(e.t,0.6);
         if(e.b>=4&&e.b<6&&e.s%4===0) snare(e.t,0.5);
         if(e.b===6&&e.s%2===0) snare(e.t,0.45+e.s*0.02);
-        if(e.b===7) snare(e.t,0.35+e.s*0.03);
+        if(e.b===7&&e.s<=11) snare(e.t,0.35+e.s*0.03);
         if(e.b===4&&e.s===0) riser(e.t,e.sd*64,0.2);
-        if(e.s===0) sub(e.t,28,e.sd*6,0.13);
-        if(e.b===7&&e.s===12) zap(e.t,2400,180,0.12);
+        if(e.b===6&&e.s===0) revcym(e.t,e.sd*30,0.13);
+        if(e.s===0&&e.b<7) sub(e.t,28,e.sd*6,0.13);
+        if(e.b===7&&e.s===12) zap(e.t,2400,180,0.14);
       }),
       sec('DROP A',16,function(e){
         if(e.b===0&&e.s===0) impact(e.t,0.8);
         halfDrums(e,true);
         wobline(e,[0,1,0,2,0,1,2,3],0.17);
+        if(e.b%4===1&&e.s===14) zap(e.t,3000,320,0.06);
+        if(e.b%8===7&&e.s===12) fall(e.t,e.sd*8,0.06);
+        if(e.b===15&&e.s>=8&&e.s%2===0) snare(e.t,0.32+e.s*0.02);
       }),
       sec('双拍变奏',8,function(e){
         if(e.s%4===0) kick(e.t,1,0.45,0.2);
@@ -798,22 +851,30 @@ var S2=(function(){
         if(e.s===0) kick(e.t,0.7,0.3,0.2);
         if(e.s===8) snare(e.t,0.5);
         if(e.s%2===0) hat(e.t,0.025);
-        if(e.s===0&&e.b%4===0) pad(e.t,[52,55,59,64],e.sd*64,0.06,1100);
+        if(e.s===0&&e.b%4===0) pad(e.t,[52,55,59,64],e.sd*64,0.06,900+e.b*70);
         var mel=(e.b>>1)%2===0?VOXM:VOXM2;
-        phr(e,mel,function(n,dur){ vox(e.t,n,dur,0.1,e.mem); });
+        phr(e,mel,function(n,dur){
+          vox(e.t,n,dur,0.1,e.mem);
+          if(e.b>=4) bell(e.t,n+12,dur*0.8,0.03);
+        });
         if(e.s===0) sub(e.t,28,e.sd*12,0.12);
+        if(e.b===7&&e.s===0) revcym(e.t,e.sd*16,0.08);
       }),
       sec('短推进',4,function(e){
-        if(e.s%4===0) kick(e.t,0.85,0.3,0.2);
-        if(e.b>=2&&e.s%2===0) snare(e.t,0.35+e.s*0.02);
+        if(e.s%4===0&&!(e.b===3&&e.s>=12)) kick(e.t,0.85,0.3,0.2);
+        if(e.b===2&&e.s%2===0) snare(e.t,0.35+e.s*0.02);
         if(e.b===0&&e.s===0) riser(e.t,e.sd*32,0.2);
-        if(e.b===3) snare(e.t,0.3+e.s*0.035);
+        if(e.b===2&&e.s===0) revcym(e.t,e.sd*30,0.12);
+        if(e.b===3&&e.s<=11) snare(e.t,0.3+e.s*0.035);
+        if(e.b===3&&e.s===12) zap(e.t,2600,210,0.12);
       }),
       sec('DROP B',16,function(e){
         if(e.b===0&&e.s===0) impact(e.t,0.85);
         halfDrums(e,true);
         wobline(e,[3,1,3,2,3,0,3,3],0.18);
+        if(e.b>=8) phr(e,VOXM,function(n,dur){ vox(e.t,n+12,dur,0.045,e.mem); });
         if(e.b%4===3&&e.s===14) snare(e.t,0.5);
+        if(e.b%4===2&&e.s===6) zap(e.t,2200,300,0.055);
       }),
       sec('终压',8,function(e){
         halfDrums(e,true);
@@ -857,7 +918,7 @@ var S3=(function(){
     if(e.s%4===0) kick(e.t,1,0.52,0.26);
     if(full){
       if(e.s%4===2) hat(e.t,0.11,true);
-      hat(e.t,e.s%2?0.045:0.025);
+      hat(e.t,(e.s%2?0.045:0.025)*(0.85+rnd(e.bar*16+e.s,9)*0.3));
       if(e.s===4||e.s===12) clap(e.t,0.55);
       if(e.b%8===0&&e.s===0) crash(e.t,0.22);
       if(e.b%8===7&&e.s>=10&&e.s%2===0) snare(e.t,0.4);
@@ -894,23 +955,27 @@ var S3=(function(){
         if(e.b>=2) rolling(e,0.05+e.b*0.008);
         if(e.b>=4&&e.s%2===0) hat(e.t,0.025);
         if(e.b>=6&&(e.s===4||e.s===12)) clap(e.t,0.35);
+        if(e.b===7&&e.s===0) revcym(e.t,e.sd*16,0.08);
       }),
       sec('律动',8,function(e){
         tranceDrums(e,true);
         rolling(e,0.11);
         if(e.s===0&&e.b%2===0) stab(e.t,CH[e.bar%4].slice(1),0.3,0.05);
+        if(e.b>=6) acidline(e,0.016);
       }),
       sec('酸性段',16,function(e){
         tranceDrums(e,true);
         rolling(e,0.11);
         acidline(e,0.028+Math.min(0.05,e.b*0.004));
+        if(e.b>=8&&e.s===0&&e.b%2===0) stab(e.t,CH[e.bar%4].slice(1),0.3,0.045);
         if(e.b%8===7&&e.s===0) fall(e.t,e.sd*12,0.07);
       }),
       sec('过门',4,function(e){
         if(e.s%4===0) kick(e.t,0.9,0.4,0.24);
         rolling(e,0.1);
-        if(e.b>=2&&e.s%2===0) snare(e.t,0.3+e.s*0.02);
-        if(e.b===3) snare(e.t,0.3+e.s*0.035);
+        if(e.b===2&&e.s%2===0) snare(e.t,0.3+e.s*0.02);
+        if(e.b===3&&e.s<=11) snare(e.t,0.3+e.s*0.035);
+        if(e.b===3&&e.s===13) zap(e.t,1800,300,0.08);
         if(e.b===0&&e.s===0) riser(e.t,e.sd*32,0.14);
       }),
       sec('大间奏',16,function(e){
@@ -919,37 +984,45 @@ var S3=(function(){
         if(e.s===0) sub(e.t,ROOT[e.bar%4]-12,e.sd*15,0.1);
         anthem(e,0.06,false);
         if(e.b>=8&&e.s%2===0) arpeg(e,0.02+(e.b-8)*0.002);
+        if(e.b>=8) phr(e,PH[(e.b>>1)%4],function(n,dur){ bell(e.t,n+12,dur*1.3,0.03); });
         if(e.s%4===2&&e.b>=4) shaker(e.t,0.04);
         if(e.b>=12&&(e.s===4||e.s===12)) clap(e.t,0.25+(e.b-12)*0.06);
+        if(e.b===14&&e.s===0) revcym(e.t,e.sd*32,0.1);
+        if(e.b===15&&e.s%4===0) snare(e.t,0.3);
       }),
       sec('推进',8,function(e){
-        if(e.s%4===0) kick(e.t,0.95,0.45,0.26);
-        if(e.b>=4) rolling(e,0.1);
+        var gap=e.b===7&&e.s>=13;
+        if(e.s%4===0&&!gap) kick(e.t,0.95,0.45,0.26);
+        if(e.b>=4&&!gap) rolling(e,0.1);
         if(e.s===0) pad(e.t,CH[e.bar%4],e.sd*16,0.05,1600);
-        if(e.s%2===0) arpeg(e,0.03);
+        if(e.s%2===0&&!gap) arpeg(e,0.03);
         if(e.b===4&&e.s===0) riser(e.t,e.sd*64,0.2);
+        if(e.b===6&&e.s===0) revcym(e.t,e.sd*30,0.12);
         if(e.b===6&&e.s%2===0) snare(e.t,0.4);
-        if(e.b===7) snare(e.t,0.32+e.s*0.03);
-        if(e.b===7&&e.s===15) zap(e.t,2000,240,0.1);
+        if(e.b===7&&e.s<=12) snare(e.t,0.32+e.s*0.03);
+        if(e.b===7&&e.s===13) zap(e.t,2000,240,0.12);
       }),
       sec('主 DROP',16,function(e){
-        if(e.b===0&&e.s===0) impact(e.t,0.7);
+        if(e.b===0&&e.s===0){ impact(e.t,0.7); crash(e.t,0.26); }
         tranceDrums(e,true);
         rolling(e,0.12);
-        anthem(e,0.085,false);
+        anthem(e,0.085,e.b>=8);
         if(e.s%2===1) arpeg(e,0.018);
         acidline(e,0.016);
+        if(e.b>=8&&e.s%2===0) ride(e.t,0.028);
+        if(e.b===15&&e.s>=8&&e.s%2===0) snare(e.t,0.32+e.s*0.02);
       }),
       sec('升华',12,function(e){
         tranceDrums(e,true);
         rolling(e,0.12);
         anthem(e,0.09,true);
-        if(e.s%2===0) arpeg(e,0.026);
+        arpeg(e,e.s%2?0.013:0.026);
         if(e.b%4===0&&e.s===0) crash(e.t,0.24);
         if(e.s%2===0) ride(e.t,0.04);
       }),
       sec('尾声',8,function(e){
         var g=1-e.b/8;
+        if(e.b===0&&e.s===0) fall(e.t,e.sd*24,0.1);
         if(e.b<4&&e.s%4===0) kick(e.t,0.85*g+0.15,0.4,0.24);
         if(e.b<4) rolling(e,0.09*g);
         if(e.s===0) pad(e.t,CH[e.bar%4],e.sd*16,0.055*g+0.012,1200);
@@ -979,7 +1052,7 @@ var S4=(function(){
     if(e.s===7&&rnd(id,3)>0.55) snare(e.t,0.14);
     if(e.s===9&&rnd(id,5)>0.72) snare(e.t,0.12);
     if(e.s===15&&rnd(id,9)>0.6) snare(e.t,0.16);
-    hat(e.t,e.s%2?0.05:0.026);
+    hat(e.t,(e.s%2?0.05:0.026)*(0.8+rnd(id,13)*0.4));
     if(e.s===2&&e.bar%2===1) hat(e.t,0.07,true);
     if(e.bar%8===7){
       if(e.s===11) tomd(e.t,300,0.5);
@@ -1013,6 +1086,7 @@ var S4=(function(){
         if(e.s===0) sub(e.t,33,e.sd*14,0.1);
         phr(e,BELLM,function(n,dur){ if(e.b>=4) bell(e.t,n,dur*1.6,0.055); });
         if(e.s%4===2) shaker(e.t,0.04);
+        if(e.b===7&&e.s===0) revcym(e.t,e.sd*16,0.07);
       }),
       sec('鼓入',8,function(e){
         breakbeat(e,1);
@@ -1026,6 +1100,7 @@ var S4=(function(){
         breakbeat(e,2);
         reeseline(e,(e.b>>1)%2===1,0.14);
         stabs4(e);
+        if(e.b>=8) phr(e,BELLM,function(n,dur){ bell(e.t,n+12,dur*1.1,0.04); });
       }),
       sec('半速陷阱',8,function(e){
         if(e.s===0) kick(e.t,1,0.4,0.2);
@@ -1034,6 +1109,8 @@ var S4=(function(){
         if(e.s===0&&e.b%2===0) wob(e.t,45,e.sd*14,e.b%4===0?1.5:3,0.12);
         if(e.s===0&&e.b%2===0) sub(e.t,33,e.sd*14,0.13);
         if(e.b%4===0&&e.s===0) crash(e.t,0.18);
+        if(e.b%2===1&&e.s===12) bell(e.t,81,e.sd*3,0.04);
+        if(e.b===7&&e.s===14) zap(e.t,2200,260,0.1);
       }),
       sec('加压',8,function(e){
         breakbeat(e,2);
@@ -1044,7 +1121,7 @@ var S4=(function(){
       }),
       sec('星空间奏',8,function(e){
         if(e.b===0&&e.s===0) fall(e.t,e.sd*20,0.1);
-        if(e.s===0&&e.b%4===0) pad(e.t,PADS[(e.b>>2)%2],e.sd*64,0.07,1300);
+        if(e.s===0&&e.b%4===0) pad(e.t,PADS[(e.b>>2)%2],e.sd*64,0.07,1000+e.b*70);
         phr(e,BELLM,function(n,dur){ bell(e.t,n,dur*1.8,0.09); });
         if(e.s===0) sub(e.t,e.b<4?33:29,e.sd*14,0.11);
         if(e.b>=4) arps4(e,0.016);
@@ -1053,6 +1130,7 @@ var S4=(function(){
         if(e.b<4){ if(e.s===0||e.s===10) kick(e.t,0.8,0.25,0.14); if(e.s===4||e.s===12) snare(e.t,0.5); }
         else breakbeat(e,1);
         if(e.b===4&&e.s===0) riser(e.t,e.sd*64,0.18);
+        if(e.b===6&&e.s===0) revcym(e.t,e.sd*32,0.11);
         if(e.b===7&&e.s>=8) snare(e.t,0.3+(e.s-8)*0.05);
         if(e.s===0) sub(e.t,33,e.sd*8,0.11);
       }),
@@ -1062,6 +1140,7 @@ var S4=(function(){
         reeseline(e,(e.b>>1)%2===0,0.15);
         stabs4(e);
         if(e.b>=8) arps4(e,0.015);
+        if(e.b>=12) phr(e,BELLM,function(n,dur){ bell(e.t,n+12,dur,0.035); });
       }),
       sec('神经半速',8,function(e){
         if(e.s===0) kick(e.t,1,0.4,0.2);
@@ -1081,6 +1160,7 @@ var S4=(function(){
       }),
       sec('远去',8,function(e){
         var g=1-e.b/8;
+        if(e.b===0&&e.s===0) fall(e.t,e.sd*24,0.09);
         if(e.b<4){ if(e.s===0||e.s===10) kick(e.t,0.7*g+0.2,0.2,0.12); if(e.s===4||e.s===12) snare(e.t,0.5*g+0.1); }
         if(e.s===0&&e.b%4===0) pad(e.t,PADS[1],e.sd*64,0.06,900);
         phr(e,BELLM,function(n,dur){ bell(e.t,n,dur*1.6,0.06*g+0.01); });
@@ -1125,7 +1205,7 @@ var S5=(function(){
   function drums5(e,fills){
     if(e.s===0||e.s===8) kick(e.t,1,0.32,0.24);
     if(e.s===4||e.s===12){ snare(e.t,1.05); clap(e.t,0.55,0.6); pump(e.t,0.25,0.2); }
-    hat(e.t,e.s%2?0:0.05);
+    hat(e.t,e.s%2?0.012:0.05*(0.85+rnd(e.bar*16+e.s,15)*0.3));
     if(e.s===14&&e.b%2===1) hat(e.t,0.08,true);
     if(fills&&e.b%8===7){
       if(e.s===12) tomd(e.t,290,0.6);
@@ -1135,13 +1215,17 @@ var S5=(function(){
     }
     if(e.b%16===0&&e.s===0) crash(e.t,0.22);
   }
-  function theme(e,mel,v){
-    phr(e,mel,function(n,dur){ bell(e.t,n,dur*1.5,v); });
+  function theme(e,mel,v,h){
+    phr(e,mel,function(n,dur){
+      bell(e.t,n,dur*1.5,v);
+      if(h) bell(e.t,below(n,CH[e.bar%4]),dur*1.5,v*0.5);
+    });
   }
   function solo(e,v){
     var mel=SOLOS[(e.b>>1)%4];
     phr(e,mel,function(n,dur,item){
       lead(e.t,n,dur,v,{lp:3200,echo:0.34,duck:true,slideFrom:item[0]===0?n-3:null});
+      if(item[2]>=6) lead(e.t,below(n,CH[e.bar%4]),dur,v*0.38,{lp:2500,echo:0.22,att:0.03,duck:true});
     });
   }
   return {
@@ -1153,18 +1237,20 @@ var S5=(function(){
         if(e.b>=2) arp5(e,0.02+e.b*0.003,false);
         if(e.s===0) sub(e.t,ROOT[e.bar%4]-12,e.sd*15,0.08);
         if(e.b>=6&&(e.s===4||e.s===12)) clap(e.t,0.3,0.5);
+        if(e.b===7&&e.s===0) revcym(e.t,e.sd*16,0.06);
       }),
       sec('上路',8,function(e){
         drums5(e,true);
         bass5(e,false);
         arp5(e,0.04,false);
+        if(e.b>=4) theme(e,(e.b>>1)%2===0?M0:M1,0.05);
         if(e.s===0) pad(e.t,CH[e.bar%4],e.sd*16,0.045,1200);
       }),
       sec('主题 A',16,function(e){
         drums5(e,true);
         bass5(e,false);
         arp5(e,0.038,false);
-        theme(e,(e.b>>1)%2===0?M0:M1,0.11);
+        theme(e,(e.b>>1)%2===0?M0:M1,0.11,e.b>=8);
         if(e.s===0) pad(e.t,CH[e.bar%4],e.sd*16,0.04,1300);
       }),
       sec('夜航',8,function(e){
@@ -1173,14 +1259,16 @@ var S5=(function(){
         if(e.s%2===0) hat(e.t,0.03);
         if(e.s===0) pad(e.t,CH[e.bar%4],e.sd*16,0.07,900+e.b*70);
         arp5(e,0.03,false);
+        if(e.b>=4) phr(e,SL0,function(n,dur){ pluck(e.t,n+12,dur,0.032,0.42); });
         if(e.s===0) sub(e.t,ROOT[e.bar%4]-12,e.sd*15,0.1);
+        if(e.b===6&&e.s===0) revcym(e.t,e.sd*32,0.08);
         if(e.b===7&&e.s===8) riser(e.t,e.sd*8,0.12);
       }),
       sec('主题 B',16,function(e){
         drums5(e,true);
         bass5(e,true);
         arp5(e,0.036,false);
-        theme(e,(e.b>>1)%2===0?M1:M0,0.115);
+        theme(e,(e.b>>1)%2===0?M1:M0,0.115,e.b>=8);
         if(e.b>=8) arp5(e,0.02,true);
         if(e.s===0) pad(e.t,CH[e.bar%4],e.sd*16,0.04,1400);
       }),
@@ -1194,7 +1282,7 @@ var S5=(function(){
       sec('终焦',12,function(e){
         drums5(e,true);
         bass5(e,true);
-        theme(e,(e.b>>1)%2===0?M0:M1,0.11);
+        theme(e,(e.b>>1)%2===0?M0:M1,0.11,true);
         solo(e,e.b>=8?0.08:0);
         arp5(e,0.034,true);
         if(e.b%4===0&&e.s===0) crash(e.t,0.2);
