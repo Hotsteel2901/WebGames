@@ -252,6 +252,34 @@
             border-color: rgba(168,85,247,0.3);
         }
 
+        .game-card.kupao {
+            --card-glow-from: #FF8C00;
+            --card-glow-to: rgba(255,140,0,0.1);
+        }
+        .game-card.kupao:hover {
+            border-color: rgba(255,140,0,0.3);
+            box-shadow: 0 0 30px rgba(255,140,0,0.15), 0 8px 32px rgba(0,0,0,0.3);
+        }
+        .game-card.kupao .game-title { color: #FF8C00; }
+        .game-card.kupao .game-badge {
+            color: #FF8C00;
+            border-color: rgba(255,140,0,0.3);
+        }
+
+        .game-card.dtpk {
+            --card-glow-from: #0EA5E9;
+            --card-glow-to: rgba(14,165,233,0.1);
+        }
+        .game-card.dtpk:hover {
+            border-color: rgba(14,165,233,0.3);
+            box-shadow: 0 0 30px rgba(14,165,233,0.15), 0 8px 32px rgba(0,0,0,0.3);
+        }
+        .game-card.dtpk .game-title { color: #0EA5E9; }
+        .game-card.dtpk .game-badge {
+            color: #0EA5E9;
+            border-color: rgba(14,165,233,0.3);
+        }
+
         .game-desc {
             font-family: var(--font-mono);
             font-size: 0.75rem;
@@ -387,6 +415,26 @@
                 <div class="game-title">消消乐</div>
                 <div class="game-desc">Match 3 &mdash; 交换相邻宝石，消除三连成就连锁爆发</div>
                 <span class="game-badge">MATCH PUZZLE</span>
+                <div class="click-hint">点击开始 &rarr;</div>
+            </a>
+
+            <a href="kupao.html"
+               class="game-card kupao"
+               aria-label="开始 酷跑英雄 横版跑酷游戏">
+                <span class="game-icon" aria-hidden="true">&#x1F3C3;</span>
+                <div class="game-title">酷跑英雄</div>
+                <div class="game-desc">致敬天天酷跑 &mdash; 奔跑跳跃滑铲，躲避障碍收集金币突破纪录</div>
+                <span class="game-badge">RUNNER ARCADE</span>
+                <div class="click-hint">点击开始 &rarr;</div>
+            </a>
+
+            <a href="dtpk.html"
+               class="game-card dtpk"
+               aria-label="开始 地铁跑酷 3D跑酷游戏">
+                <span class="game-icon" aria-hidden="true">&#x1F6FC;</span>
+                <div class="game-title">地铁跑酷</div>
+                <div class="game-desc">3D网页复刻 &mdash; 躲避列车路障、吃金币拾道具、摆脱督察追击</div>
+                <span class="game-badge">3D ENDLESS RUN</span>
                 <div class="click-hint">点击开始 &rarr;</div>
             </a>
         </div>

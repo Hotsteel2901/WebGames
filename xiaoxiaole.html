@@ -164,6 +164,7 @@
   <div class="controls">
     <button id="restart">重新开始</button>
     <button id="shuffle">洗牌</button>
+    <button id="sound-btn">🔊</button>
   </div>
   <div class="hint">点击相邻两个方块交换，凑齐 3 个及以上即可消除</div>
 
@@ -178,6 +179,35 @@
     { emoji: "🫐", color: "#4b7bec" },
     { emoji: "🍊", color: "#fd9644" },
   ];
+
+  let AC=null,mg=null,soundOn=true;
+  function initAudio(){
+    if(AC){ if(AC.state==='suspended') AC.resume(); return; }
+    try{
+      AC=new (window.AudioContext||window.webkitAudioContext)();
+      mg=AC.createGain();mg.gain.value=0.5;mg.connect(AC.destination);
+    }catch(e){}
+  }
+  function sfx(name){
+    if(!AC||!soundOn)return;
+    var t=AC.currentTime,g=mg;
+    function tone(f,td,dur,ty,vol,f2){
+      var o=AC.createOscillator(),gn=AC.createGain();
+      o.type=ty||'sine';o.frequency.setValueAtTime(f,t+td);
+      if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+td+dur);
+      gn.gain.setValueAtTime(vol,t+td);gn.gain.exponentialRampToValueAtTime(0.001,t+td+dur);
+      o.connect(gn);gn.connect(g);o.start(t+td);o.stop(t+td+dur+0.02);
+    }
+    switch(name){
+      case'select':tone(660,0,0.08,'triangle',0.12);break;
+      case'swap':tone(400,0,0.06,'sine',0.1);tone(520,0.05,0.1,'sine',0.09,700);break;
+      case'match':tone(523,0,0.06,'square',0.08);tone(659,0.07,0.06,'square',0.08);tone(784,0.14,0.1,'square',0.08);break;
+      case'combo':tone(660,0,0.05,'square',0.09);tone(880,0.06,0.05,'square',0.09);tone(1047,0.12,0.08,'square',0.09);tone(1320,0.18,0.12,'square',0.09);break;
+      case'invalid':tone(220,0,0.18,'sawtooth',0.06,140);break;
+      case'win':tone(523,0,0.12,'sine',0.1);tone(659,0.1,0.12,'sine',0.1);tone(784,0.2,0.12,'sine',0.1);tone(1047,0.3,0.25,'sine',0.12);break;
+      case'lose':tone(392,0,0.14,'sine',0.1,262);tone(330,0.12,0.15,'sine',0.1,220);tone(262,0.24,0.2,'sine',0.1,196);break;
+    }
+  }
 
   const boardEl = document.getElementById("board");
   const wrapEl = document.getElementById("board-wrap");
@@ -289,9 +319,11 @@
 
   function tapCell(r,c){
     if(busy) return;
+    initAudio();
     if(!selected){
       selected={r,c};
       cells[r][c].classList.add("selected");
+      sfx('select');
       return;
     }
     const s=selected;
@@ -335,6 +367,7 @@
     const matches=findMatches();
     if(matches.length===0){
       swap(a,b);
+      sfx('invalid');
       const da=cells[a.r][a.c], db=cells[b.r][b.c];
       da.style.transition="transform .2s cubic-bezier(.5,-0.3,.5,1.3)";
       db.style.transition="transform .2s cubic-bezier(.5,-0.3,.5,1.3)";
@@ -347,6 +380,7 @@
     resetSwap(a,b);
     render();
     moves--; movesEl.textContent=moves;
+    sfx('swap');
     await resolveMatches();
     busy=false;
     checkEnd();
@@ -391,6 +425,7 @@
       const matches=findMatches();
       if(matches.length===0) break;
       combo++;
+      if(combo===1) sfx('match'); else sfx('combo');
       const gain=matches.length*10*combo;
       score+=gain; scoreEl.textContent=score;
       showFloat(matches, gain, combo);
@@ -495,6 +530,7 @@
 
   async function shuffle(){
     if(busy) return;
+    initAudio();
     busy=true;
     do {
       const flat=[];
@@ -524,8 +560,10 @@
 
   function checkEnd(){
     if(score>=target){
+      sfx('win');
       showOverlay("🎉 过关!", `恭喜达成目标 ${target} 分`, "下一关", nextLevel);
     } else if(moves<=0){
+      sfx('lose');
       showOverlay("游戏结束", `得分 ${score} / ${target}`, "再试一次", ()=>startLevel(level));
     } else if(!hasPossibleMove()){
       shuffle();
@@ -561,6 +599,11 @@
 
   document.getElementById("restart").onclick=()=>{ overlay.classList.remove("show"); startLevel(1); };
   document.getElementById("shuffle").onclick=shuffle;
+  document.getElementById("sound-btn").onclick=()=>{
+    initAudio();
+    soundOn=!soundOn;
+    document.getElementById("sound-btn").textContent=soundOn?'🔊':'🔇';
+  };
   window.addEventListener("resize",()=>{ if(!busy) buildDOM(); });
   window.addEventListener("pointermove",onPointerMove);
   window.addEventListener("pointerup",onPointerUp);
