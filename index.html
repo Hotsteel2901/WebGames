@@ -308,6 +308,20 @@
             border-color: rgba(233,180,76,0.3);
         }
 
+        .game-card.rock {
+            --card-glow-from: #E04545;
+            --card-glow-to: rgba(224,69,69,0.1);
+        }
+        .game-card.rock:hover {
+            border-color: rgba(224,69,69,0.3);
+            box-shadow: 0 0 30px rgba(224,69,69,0.15), 0 8px 32px rgba(0,0,0,0.3);
+        }
+        .game-card.rock .game-title { color: #E04545; }
+        .game-card.rock .game-badge {
+            color: #E04545;
+            border-color: rgba(224,69,69,0.3);
+        }
+
         .game-desc {
             font-family: var(--font-mono);
             font-size: 0.75rem;
@@ -483,6 +497,16 @@
                 <div class="game-title">JAZZ LOUNGE</div>
                 <div class="game-desc">5 首原创爵士 &mdash; Bebop / Bossa / Ballad / 3拍华尔兹 / 布鲁斯，和弦谱驱动虚拟五重奏</div>
                 <span class="game-badge">5 PIECES &middot; LIVE QUINTET</span>
+                <div class="click-hint">点击开始 &rarr;</div>
+            </a>
+
+            <a href="rock_music.html"
+               class="game-card rock"
+               aria-label="打开 Rock Garage 五首原创摇滚">
+                <span class="game-icon" aria-hidden="true">&#x1F3B8;</span>
+                <div class="game-title">ROCK GARAGE</div>
+                <div class="game-desc">5 首原创摇滚 &mdash; 硬摇滚 / 朋克 / 金属 / 强力抒情 / 放克摇滚，双轨失真吉他 Riff 机器</div>
+                <span class="game-badge">5 TRACKS &middot; TWIN GUITARS</span>
                 <div class="click-hint">点击开始 &rarr;</div>
             </a>
         </div>
