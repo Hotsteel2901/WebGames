@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -75,6 +75,11 @@
             font-family: var(--font-mono);
             font-size: 13px; color: var(--muted); margin-top: 4px;
         }
+        .track-sec {
+            font-family: var(--font-mono);
+            font-size: 11px; color: var(--muted); margin-top: 4px; letter-spacing: 1px;
+            min-height: 14px;
+        }
         .track-selector { display: flex; gap: 10px; justify-content: center; }
         .track-btn {
             flex: 1; max-width: 140px;
@@ -116,7 +121,7 @@
         }
         .viz-bar {
             width: 6px; border-radius: 3px; background: var(--player);
-            transition: height 0.12s ease-out, opacity 0.3s;
+            transition: height 0.1s ease-out, opacity 0.3s;
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -135,16 +140,17 @@
     <div class="container">
         <div class="header">
             <div class="title">BGM Player</div>
-            <div class="subtitle">Geometry Dash Neon Edition</div>
+            <div class="subtitle">Geometry Dash · 3 Original Tracks</div>
             <a href="Geometrydash.html" class="back-link">&larr; Back to Game</a>
         </div>
         <div class="player-card">
             <div class="track-info">
-                <div class="track-label" id="trackLabel">Normal</div>
-                <div class="track-bpm" id="trackBpm">128 BPM</div>
+                <div class="track-label" id="trackLabel">NEON RUNNER</div>
+                <div class="track-bpm" id="trackBpm">Normal &middot; 128 BPM</div>
+                <div class="track-sec" id="trackSec"></div>
             </div>
             <div class="track-selector" role="radiogroup" aria-label="Track selection">
-                <button class="track-btn active-0" data-diff="0" role="radio" aria-checked="false">Easy</button>
+                <button class="track-btn" data-diff="0" role="radio" aria-checked="false">Easy</button>
                 <button class="track-btn active-1" data-diff="1" role="radio" aria-checked="true">Normal</button>
                 <button class="track-btn" data-diff="2" role="radio" aria-checked="false">Hard</button>
             </div>
@@ -159,129 +165,378 @@
     </div>
     <script>
     (function() {
-        class SoundEngine {
-            constructor() { this.ctx = null; this.masterGain = null; this._init(); }
-            _init() {
-                try {
-                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-                    this.masterGain = this.ctx.createGain();
-                    this.masterGain.gain.value = 0.4;
-                    this.masterGain.connect(this.ctx.destination);
-                } catch (_) {}
-            }
-            resume() { if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume().catch(() => {}); }
-            _note(freq, dur, vol, type) {
-                if (!this.ctx) return;
-                const osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
-                osc.type = type || 'sine';
-                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-                gain.gain.setValueAtTime(Math.min(vol, 0.3), this.ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + dur);
-                osc.connect(gain); gain.connect(this.masterGain);
-                osc.start(this.ctx.currentTime); osc.stop(this.ctx.currentTime + dur);
-            }
-            _noise(dur, vol) {
-                if (!this.ctx) return;
-                try {
-                    const sr = this.ctx.sampleRate, buf = this.ctx.createBuffer(1, sr * dur, sr);
-                    const d = buf.getChannelData(0);
-                    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-                    const src = this.ctx.createBufferSource(); src.buffer = buf;
-                    const gain = this.ctx.createGain(), hp = this.ctx.createBiquadFilter();
-                    hp.type = 'highpass'; hp.frequency.value = 800;
-                    gain.gain.value = 0;
-                    gain.gain.linearRampToValueAtTime(vol, this.ctx.currentTime + 0.002);
-                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + dur);
-                    src.connect(hp); hp.connect(gain); gain.connect(this.masterGain);
-                    src.start(this.ctx.currentTime); src.stop(this.ctx.currentTime + dur);
-                } catch (_) {}
-            }
+        'use strict';
+        var soundMuted = false;
+        var sound = { ctx: null, masterGain: null, bgmEnabled: true };
+        function initCtx() {
+            if (sound.ctx) return;
+            try {
+                sound.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                sound.masterGain = sound.ctx.createGain();
+                sound.masterGain.gain.value = 0.5;
+                sound.masterGain.connect(sound.ctx.destination);
+            } catch (_) {}
         }
 
-        const sound = new SoundEngine();
-        const SCALE = [220.00, 261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33];
-        const CHORDS = [110.00, 87.31, 130.81, 98.00];
+        const BGM_HZ = m => 440 * Math.pow(2, (m - 69) / 12);
 
-        const MUSIC = [
-            { bpm: 100, label: 'Easy',
-                melodies: [
-                    [null,0,null,null, 0,null,null,null, null,1,null,null, 1,null,null,null],
-                    [null,null,2,null, null,1,null,null, null,null,0,null, 0,null,null,null],
-                    [null,1,null,2, null,null,3,null, null,2,null,1, null,0,null,null],
-                ], basses: [
-                    [0,null,null,null, 0,null,null,null, 1,null,null,null, 1,null,null,null],
-                    [2,null,null,null, 2,null,null,null, 3,null,null,null, 3,null,null,null],
-                ], kicks: [[5,null,null,null, 5,null,null,null, 5,null,null,null, 5,null,3,null]],
-                snares: [[null,null,null,null, 5,null,null,null, null,null,null,null, 5,null,null,null]],
-                hats: [[3,3,3,3,3,3,3,3, 3,3,3,3,3,3,3,3]],
+        const bsyn = {
+            ready: false,
+            init() {
+                if (this.ready || !sound.ctx) return;
+                const c = sound.ctx;
+                this.bus = c.createGain(); this.bus.gain.value = 0.5;
+                this.bus.connect(sound.masterGain);
+                this.duck = c.createGain(); this.duck.connect(this.bus);
+                this.dl = c.createDelay(1.2);
+                this.fb = c.createGain(); this.fb.gain.value = 0.32;
+                this.dlp = c.createBiquadFilter(); this.dlp.type = 'lowpass'; this.dlp.frequency.value = 3000;
+                const dOut = c.createGain(); dOut.gain.value = 0.5;
+                this.dlIn = c.createGain();
+                this.dlIn.connect(this.dl); this.dl.connect(this.dlp);
+                this.dlp.connect(this.fb); this.fb.connect(this.dl);
+                this.dlp.connect(dOut); dOut.connect(this.bus);
+                this.nb = c.createBuffer(1, c.sampleRate * 0.6, c.sampleRate);
+                const d = this.nb.getChannelData(0);
+                for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+                this.ready = true;
             },
-            { bpm: 128, label: 'Normal',
-                melodies: [
-                    [null,0,null,1, null,2,null,null, 0,null,1,null, 2,1,null,0],
-                    [null,null,3,2, null,1,0,null, null,2,null,3, null,4,3,null],
-                    [0,1,null,null, 2,3,null,4, null,3,2,1, 0,null,null,null],
-                    [4,null,3,2, null,1,null,0, null,null,3,2, 1,null,0,null],
-                    [null,2,1,null, 0,null,null,3, 2,null,1,null, 0,3,2,null],
-                    [0,null,null,3, null,2,1,null, 0,null,2,null, 3,4,null,2],
-                ], basses: [
-                    [0,null,null,null, 0,null,null,null, 1,null,null,null, 1,null,null,null],
-                    [2,null,null,null, 2,null,null,null, 3,null,null,null, 3,null,null,null],
-                    [0,null,null,1, 2,null,null,1, 0,null,1,null, 2,null,3,null],
-                ], kicks: [
-                    [7,null,null,null, 7,null,null,4, 7,null,null,5, 7,5,7,null],
-                    [7,null,null,null, 7,null,null,null, 7,null,5,null, 7,5,4,4],
-                    [7,null,null,4, 7,4,5,null, 7,null,5,null, 7,5,4,3],
-                ], snares: [
-                    [null,null,null,null, 7,null,null,3, null,null,null,null, 7,2,null,4],
-                    [null,null,null,3, 7,null,null,null, null,null,null,5, 7,4,4,null],
-                    [null,2,null,null, 7,3,null,4, null,null,5,null, 7,4,6,5],
-                ], hats: [
-                    [4,4,6,4,4,6,4,4, 4,4,6,4,4,6,4,4],
-                    [4,4,6,4,4,6,4,6, 4,4,6,4,4,4,6,6],
-                    [4,6,4,4,6,4,4,6, 4,4,6,6,4,4,6,4],
-                ],
+            setTempo(bpm) { if (this.ready) this.dl.delayTime.value = 0.75 * 60 / bpm; },
+            ok() { return this.ready && sound.bgmEnabled && !soundMuted; },
+            send(node, amt) {
+                const g = sound.ctx.createGain(); g.gain.value = amt;
+                node.connect(g); g.connect(this.dlIn);
             },
-            { bpm: 145, label: 'Hard',
-                melodies: [
-                    [0,null,1,2, null,3,2,null, 1,0,null,2, null,3,null,4],
-                    [null,2,null,null, 3,4,3,null, 1,null,2,3, null,1,0,null],
-                    [4,3,null,2, 1,null,0,1, 2,3,null,4, 3,2,1,null],
-                    [0,1,2,3, 4,3,2,1, null,0,2,null, 3,1,0,null],
-                ], basses: [
-                    [0,null,0,null, 1,null,null,1, 2,null,null,null, 3,null,2,null],
-                    [0,null,null,null, 1,null,0,null, 2,null,3,2, 0,null,1,null],
-                ], kicks: [
-                    [7,null,4,5, 7,null,5,null, 7,4,5,null, 7,5,4,5],
-                    [7,4,5,null, 7,5,4,4, 7,null,5,4, 7,5,4,3],
-                ], snares: [
-                    [null,3,null,4, 7,null,5,null, null,4,null,null, 7,5,4,5],
-                    [null,4,5,null, 7,3,4,5, null,4,null,3, 7,6,5,4],
-                ], hats: [
-                    [6,4,6,4,6,6,4,6, 6,4,6,6,4,6,6,4],
-                    [6,6,4,6,6,4,6,6, 6,4,6,6,4,6,4,6],
-                ],
+            kick(t, v) {
+                if (!this.ok() || !v) return; const c = sound.ctx;
+                const o = c.createOscillator(), g = c.createGain();
+                o.type = 'sine';
+                o.frequency.setValueAtTime(150, t);
+                o.frequency.exponentialRampToValueAtTime(44, t + 0.08);
+                g.gain.setValueAtTime(v, t);
+                g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+                o.connect(g); g.connect(this.bus);
+                o.start(t); o.stop(t + 0.24);
+                this.duck.gain.cancelScheduledValues(t);
+                this.duck.gain.setValueAtTime(0.5, t);
+                this.duck.gain.linearRampToValueAtTime(1, t + 0.2);
             },
+            snare(t, v) {
+                if (!this.ok() || !v) return; const c = sound.ctx;
+                const n = c.createBufferSource(); n.buffer = this.nb; n.loop = true;
+                const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1700;
+                const g = c.createGain();
+                g.gain.setValueAtTime(v, t);
+                g.gain.exponentialRampToValueAtTime(0.0001, t + 0.13);
+                n.connect(hp); hp.connect(g); g.connect(this.bus);
+                n.start(t); n.stop(t + 0.15);
+                const o = c.createOscillator(), og = c.createGain();
+                o.type = 'triangle';
+                o.frequency.setValueAtTime(195, t);
+                o.frequency.exponentialRampToValueAtTime(150, t + 0.06);
+                og.gain.setValueAtTime(v * 0.6, t);
+                og.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+                o.connect(og); og.connect(this.bus);
+                o.start(t); o.stop(t + 0.09);
+            },
+            clap(t, v) {
+                if (!this.ok() || !v) return; const c = sound.ctx;
+                for (let i = 0; i < 2; i++) {
+                    const tt = t + i * 0.012;
+                    const n = c.createBufferSource(); n.buffer = this.nb; n.loop = true;
+                    const bp = c.createBiquadFilter(); bp.type = 'bandpass';
+                    bp.frequency.value = 1400; bp.Q.value = 1.1;
+                    const g = c.createGain();
+                    g.gain.setValueAtTime(v * (i ? 1 : 0.5), tt);
+                    g.gain.exponentialRampToValueAtTime(0.0001, tt + (i ? 0.16 : 0.03));
+                    n.connect(bp); bp.connect(g); g.connect(this.bus);
+                    n.start(tt); n.stop(tt + 0.18);
+                }
+            },
+            hat(t, v, open) {
+                if (!this.ok() || !v) return; const c = sound.ctx;
+                const n = c.createBufferSource(); n.buffer = this.nb; n.loop = true;
+                n.playbackRate.value = 1.3;
+                const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 8200;
+                const g = c.createGain(); const d = open ? 0.22 : 0.04;
+                g.gain.setValueAtTime(v, t);
+                g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+                n.connect(hp); hp.connect(g); g.connect(this.bus);
+                n.start(t); n.stop(t + d + 0.02);
+            },
+            crash(t, v) {
+                if (!this.ok() || !v) return; const c = sound.ctx;
+                const n = c.createBufferSource(); n.buffer = this.nb; n.loop = true;
+                const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 5000;
+                const g = c.createGain();
+                g.gain.setValueAtTime(v, t);
+                g.gain.exponentialRampToValueAtTime(0.0001, t + 1.1);
+                n.connect(hp); hp.connect(g); g.connect(this.bus);
+                n.start(t); n.stop(t + 1.15);
+            },
+            sub(t, m, d, v) {
+                if (!this.ok() || !v) return; const c = sound.ctx;
+                const o = c.createOscillator(), g = c.createGain();
+                o.type = 'sine'; o.frequency.value = BGM_HZ(m);
+                g.gain.setValueAtTime(0.0001, t);
+                g.gain.linearRampToValueAtTime(v, t + 0.015);
+                g.gain.setValueAtTime(v, t + Math.max(0.02, d - 0.06));
+                g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+                o.connect(g); g.connect(this.duck);
+                o.start(t); o.stop(t + d + 0.02);
+            },
+            bass(t, m, d, v, acc) {
+                if (!this.ok() || !v) return; const c = sound.ctx;
+                const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 2;
+                lp.frequency.setValueAtTime(acc ? 2300 : 1300, t);
+                lp.frequency.exponentialRampToValueAtTime(240, t + Math.min(0.22, d));
+                const g = c.createGain();
+                g.gain.setValueAtTime(v, t);
+                g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+                const o1 = c.createOscillator(); o1.type = 'sawtooth'; o1.frequency.value = BGM_HZ(m);
+                const o2 = c.createOscillator(); o2.type = 'square'; o2.frequency.value = BGM_HZ(m - 12);
+                const g2 = c.createGain(); g2.gain.value = 0.45;
+                o1.connect(lp); o2.connect(g2); g2.connect(lp);
+                lp.connect(g); g.connect(this.duck);
+                o1.start(t); o2.start(t);
+                o1.stop(t + d + 0.03); o2.stop(t + d + 0.03);
+            },
+            pluck(t, m, d, v) {
+                if (!this.ok() || !v) return; const c = sound.ctx;
+                const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 1;
+                lp.frequency.setValueAtTime(4500, t);
+                lp.frequency.exponentialRampToValueAtTime(380, t + Math.min(0.3, d));
+                const g = c.createGain();
+                g.gain.setValueAtTime(v, t);
+                g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+                const o1 = c.createOscillator(); o1.type = 'triangle'; o1.frequency.value = BGM_HZ(m);
+                const o2 = c.createOscillator(); o2.type = 'sawtooth'; o2.frequency.value = BGM_HZ(m);
+                const g2 = c.createGain(); g2.gain.value = 0.4;
+                o1.connect(lp); o2.connect(g2); g2.connect(lp);
+                lp.connect(g); g.connect(this.duck);
+                this.send(g, 0.16);
+                o1.start(t); o2.start(t);
+                o1.stop(t + d + 0.02); o2.stop(t + d + 0.02);
+            },
+            stab(t, ms, d, v) {
+                if (!this.ok() || !v) return; const c = sound.ctx;
+                const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 1.4;
+                lp.frequency.setValueAtTime(2600, t);
+                lp.frequency.exponentialRampToValueAtTime(500, t + d);
+                const g = c.createGain();
+                g.gain.setValueAtTime(v, t);
+                g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+                ms.forEach(m => {
+                    [-7, 7].forEach(det => {
+                        const o = c.createOscillator(); o.type = 'sawtooth';
+                        o.frequency.value = BGM_HZ(m); o.detune.value = det;
+                        o.connect(lp); o.start(t); o.stop(t + d + 0.02);
+                    });
+                });
+                lp.connect(g); g.connect(this.duck);
+                this.send(g, 0.1);
+            },
+            lead(t, m, d, v, hard) {
+                if (!this.ok() || !v) return; const c = sound.ctx;
+                const lp = c.createBiquadFilter(); lp.type = 'lowpass';
+                lp.frequency.value = hard ? 3600 : 2900; lp.Q.value = 0.8;
+                const g = c.createGain();
+                g.gain.setValueAtTime(0.0001, t);
+                g.gain.linearRampToValueAtTime(v, t + 0.012);
+                g.gain.setValueAtTime(v, t + Math.max(0.02, d - 0.05));
+                g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.08);
+                const vib = c.createOscillator(); vib.frequency.value = 5.4;
+                const vg = c.createGain(); vg.gain.setValueAtTime(0, t);
+                vg.gain.linearRampToValueAtTime(d > 0.3 ? 9 : 4, t + Math.min(0.3, d * 0.6));
+                vib.connect(vg);
+                [-7, 7].forEach(det => {
+                    const o = c.createOscillator(); o.type = 'sawtooth';
+                    o.frequency.value = BGM_HZ(m); o.detune.value = det;
+                    vg.connect(o.detune);
+                    o.connect(lp); o.start(t); o.stop(t + d + 0.1);
+                });
+                vib.start(t); vib.stop(t + d + 0.1);
+                lp.connect(g); g.connect(this.duck);
+                this.send(g, 0.28);
+            },
+            pad(t, ms, d, v) {
+                if (!this.ok() || !v) return; const c = sound.ctx;
+                const lp = c.createBiquadFilter(); lp.type = 'lowpass';
+                lp.frequency.value = 1150; lp.Q.value = 0.5;
+                const g = c.createGain();
+                const att = Math.min(0.6, d * 0.3);
+                g.gain.setValueAtTime(0.0001, t);
+                g.gain.linearRampToValueAtTime(v, t + att);
+                g.gain.setValueAtTime(v, t + Math.max(att, d - 0.2));
+                g.gain.linearRampToValueAtTime(0.0001, t + d + 0.4);
+                ms.forEach(m => {
+                    [-8, 8].forEach(det => {
+                        const o = c.createOscillator(); o.type = 'sawtooth';
+                        o.frequency.value = BGM_HZ(m); o.detune.value = det;
+                        o.connect(lp); o.start(t); o.stop(t + d + 0.45);
+                    });
+                });
+                lp.connect(g); g.connect(this.duck);
+            },
+            riser(t, d, v) {
+                if (!this.ok() || !v) return; const c = sound.ctx;
+                const n = c.createBufferSource(); n.buffer = this.nb; n.loop = true;
+                const hp = c.createBiquadFilter(); hp.type = 'highpass';
+                hp.frequency.setValueAtTime(420, t);
+                hp.frequency.exponentialRampToValueAtTime(5200, t + d);
+                const g = c.createGain();
+                g.gain.setValueAtTime(0.0001, t);
+                g.gain.exponentialRampToValueAtTime(v, t + d);
+                g.gain.linearRampToValueAtTime(0.0001, t + d + 0.05);
+                n.connect(hp); hp.connect(g); g.connect(this.bus);
+                n.start(t); n.stop(t + d + 0.08);
+            }
+        };
+
+        const BGM_TRACKS = [
+            (function() {
+                const CH = [[57,60,64],[53,57,60],[60,64,67],[55,59,62]];
+                const RT = [33,29,36,31];
+                const P1 = [[0,76,3],[4,72,2],[6,74,2],[8,72,7],[16,72,3],[20,69,2],[22,67,2],[24,69,7]];
+                const P2 = [[0,67,3],[4,72,2],[6,74,2],[8,76,7],[16,74,3],[20,71,2],[22,67,2],[24,74,7]];
+                const ARP = [0,1,2,1];
+                return { name:'SKYLINE CRUISE 云端巡航', sub:'Easy', bpm:100, loop:32,
+                    secs:['铺垫','主题','主题·高八度','余韵'], fn(e) {
+                    const b=e.b, s=e.s, ci=b%4, ch=CH[ci], sec=b>>3;
+                    if (s===0) bsyn.kick(e.t, 0.4);
+                    if (s===8 && sec>0) bsyn.kick(e.t, 0.34);
+                    if (s===8) bsyn.clap(e.t, 0.15);
+                    if (s%2===0) bsyn.hat(e.t, s%4===0?0.032:0.018);
+                    if (sec>0 && s%4===2) bsyn.hat(e.t, 0.04, true);
+                    if (b%8===7) { if (s===12) bsyn.clap(e.t,0.07); if (s===14) bsyn.clap(e.t,0.09); }
+                    if (s===0) bsyn.sub(e.t, RT[ci], e.sd*10, 0.07);
+                    if (s===0) bsyn.bass(e.t, RT[ci]+12, e.sd*3, 0.05);
+                    if (s===10) bsyn.bass(e.t, RT[ci]+12, e.sd*2, 0.04);
+                    if (s===0) bsyn.pad(e.t, ch.map(x=>x+12), e.sd*15, sec===3?0.034:0.022);
+                    if (s%2===0 && sec!==3) bsyn.pluck(e.t, ch[ARP[(s>>1)&3]]+24, e.sd*1.6, sec===0?0.028:0.034);
+                    if (sec===3 && s===0) bsyn.pluck(e.t, ch[2]+24, e.sd*8, 0.042);
+                    if (sec===1 || sec===2) {
+                        const mel = (ci<2)?P1:P2, pos=(b%2)*16+s;
+                        for (const nt of mel) if (nt[0]===pos) {
+                            bsyn.lead(e.t, nt[1]+(sec===2?12:0), nt[2]*e.sd, sec===2?0.032:0.048);
+                            if (sec===2) bsyn.pluck(e.t, nt[1], nt[2]*e.sd, 0.028);
+                        }
+                    }
+                }};
+            })(),
+            (function() {
+                const CH = [[64,67,71],[60,64,67],[62,67,71],[62,66,69]];
+                const RT = [40,36,43,38];
+                const P1 = [[0,76,3],[6,79,3],[12,76,2],[16,79,3],[22,76,3],[28,72,3]];
+                const P2 = [[0,74,3],[6,79,3],[12,74,2],[16,78,3],[22,74,3],[28,69,3]];
+                const AP = [0,2,1,2];
+                return { name:'NEON RUNNER 霓虹奔跑者', sub:'Normal', bpm:128, loop:32,
+                    secs:['律动','主题','间奏','爬升','高潮'], fn(e) {
+                    const b=e.b, s=e.s, ci=b%4, ch=CH[ci];
+                    const brk=b>=16&&b<20, bld=b>=20&&b<24, big=b>=24;
+                    if (!brk) { if (s%4===0) bsyn.kick(e.t, 0.44); }
+                    else if (b===16 && s===0) bsyn.kick(e.t, 0.38);
+                    if (!brk && (s===4||s===12)) bsyn.snare(e.t, big?0.19:0.16);
+                    if (!brk && s%4===2) bsyn.hat(e.t, big?0.055:0.04, big&&s===14);
+                    if (!brk && s%2===1 && (big||b>=8)) bsyn.hat(e.t, 0.015);
+                    if (bld && b===23 && s%2===0) bsyn.snare(e.t, 0.09+s*0.008);
+                    else if (!brk && b%8===7 && s>=12 && s%2===0) bsyn.snare(e.t, 0.11);
+                    if (big && b%4===0 && s===0) bsyn.crash(e.t, 0.11);
+                    if (!brk) {
+                        if (s===0) bsyn.sub(e.t, RT[ci]-12, e.sd*3.5, 0.075);
+                        if (s%4===2) bsyn.bass(e.t, RT[ci], e.sd*1.8, 0.08);
+                    } else if (s===0) bsyn.sub(e.t, RT[ci]-12, e.sd*15, 0.065);
+                    if (s%2===(big?0:1)) bsyn.pluck(e.t, ch[AP[(s>>2)&3]]+12, e.sd*1.4, brk?0.028:0.024);
+                    if ((brk||big) && s===0) bsyn.pad(e.t, ch, e.sd*15, brk?0.03:0.018);
+                    if (b===22 && s===0) bsyn.riser(e.t, e.sd*32, 0.05);
+                    if ((b>=8&&b<16) || big) {
+                        const mel = ci<2?P1:P2, pos=(b%2)*16+s;
+                        for (const nt of mel) if (nt[0]===pos) {
+                            bsyn.lead(e.t, nt[1], nt[2]*e.sd, 0.05);
+                            if (big) bsyn.lead(e.t, nt[1]+12, nt[2]*e.sd, 0.018);
+                        }
+                    }
+                }};
+            })(),
+            (function() {
+                const CH = [[57,60,64],[53,57,60],[55,59,62],[52,56,59]];
+                const RT = [33,29,31,28];
+                const MEL = [
+                    [[0,81,2],[4,79,2],[6,81,2],[10,84,3]],
+                    [[0,81,2],[4,77,2],[6,79,2],[10,81,3]],
+                    [[0,79,2],[4,83,2],[6,79,2],[10,74,3]],
+                    [[0,80,2],[4,83,2],[6,80,2],[10,76,4]],
+                ];
+                const ACC = [1,0,0,0.6,0,0,1,0, 0,0.6,1,0,0,0.6,0,0];
+                return { name:'OVERDRIVE PROTOCOL 过载协议', sub:'Hard', bpm:150, loop:32,
+                    secs:['驱动','尖啸主题','半拍重压','蓄力','峰值'], fn(e) {
+                    const b=e.b, s=e.s, ci=b%4, ch=CH[ci], r=RT[ci];
+                    const half=b>=16&&b<20, bld=b>=20&&b<24, peak=b>=24;
+                    if (half) {
+                        if (s===0) bsyn.kick(e.t, 0.44);
+                        if (s===8) bsyn.snare(e.t, 0.22);
+                        if (s%4===2) bsyn.hat(e.t, 0.045, true);
+                    } else {
+                        if (s%4===0) bsyn.kick(e.t, 0.44);
+                        if (peak && s===14 && b%2===1) bsyn.kick(e.t, 0.28);
+                        if (s===4||s===12) bsyn.snare(e.t, peak?0.21:0.18);
+                        bsyn.hat(e.t, s%2?(peak?0.028:0.016):(s%4===0?0.045:0.03), peak&&s===10);
+                        if (b%4===3 && s>=12) bsyn.snare(e.t, 0.07+(s-12)*0.032);
+                    }
+                    if (bld) {
+                        if (s%2===0) bsyn.snare(e.t, 0.05+(b-20)*0.028+s*0.004);
+                        if (b===20 && s===0) bsyn.riser(e.t, e.sd*64, 0.05);
+                    }
+                    if (s===0 && b%4===0 && (peak||b%8===0)) bsyn.crash(e.t, 0.12);
+                    if (!half) {
+                        const a = ACC[s];
+                        if (a) bsyn.bass(e.t, r+12+(s===6?12:(s===10?7:0)), e.sd*(a===1?1.6:1.1), 0.07*a+0.018, a===1);
+                        if (s===0) bsyn.sub(e.t, r, e.sd*3.5, 0.068);
+                    } else {
+                        if (s===0) { bsyn.sub(e.t, r, e.sd*14, 0.075); bsyn.bass(e.t, r+12, e.sd*12, 0.045); }
+                        if (s===11) bsyn.pluck(e.t, r+25, e.sd*2, 0.038);
+                    }
+                    if (!half && (s===3||s===11)) bsyn.stab(e.t, ch.map(x=>x+12), e.sd*1.5, peak?0.042:0.032);
+                    if ((b>=8&&b<16) || peak) {
+                        for (const nt of MEL[ci]) if (nt[0]===s) {
+                            bsyn.lead(e.t, nt[1], nt[2]*e.sd, 0.05, true);
+                            if (peak) bsyn.lead(e.t, nt[1]-12, nt[2]*e.sd, 0.02, true);
+                        }
+                    }
+                    if (half && s===0) bsyn.pad(e.t, ch, e.sd*15, 0.032);
+                }};
+            })(),
         ];
 
         let diff = 1, playing = false;
-        let step = 0, bar = 0, lastStep = 0;
-        let melA = 0, bassA = 0, chordA = 0, drumA = 0, rid = null;
+        let step = 0, nextT = 0, startT = 0, rid = null;
         const playBtn = document.getElementById('playBtn');
         const iconPlay = document.getElementById('iconPlay');
         const iconPause = document.getElementById('iconPause');
         const trackLabel = document.getElementById('trackLabel');
         const trackBpm = document.getElementById('trackBpm');
+        const trackSec = document.getElementById('trackSec');
         const viz = document.getElementById('viz');
+        const COLORS = ['#00FFCC', '#A855F7', '#FF6B35'];
 
-        for (let i = 0; i < 32; i++) { const b = document.createElement('div'); b.className = 'viz-bar'; b.style.height = '4px'; b.style.opacity = '0.3'; viz.appendChild(b); }
+        for (let i = 0; i < 32; i++) {
+            const bEl = document.createElement('div');
+            bEl.className = 'viz-bar';
+            bEl.style.height = '4px'; bEl.style.opacity = '0.3';
+            viz.appendChild(bEl);
+        }
         const vizBars = viz.querySelectorAll('.viz-bar');
 
         document.querySelectorAll('.track-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                const d = parseInt(btn.dataset.diff);
+                const d = parseInt(btn.dataset.diff, 10);
                 if (d === diff) return;
-                document.querySelectorAll('.track-btn').forEach(b => { b.className = 'track-btn'; b.setAttribute('aria-checked', 'false'); });
-                btn.classList.add('active-' + d); btn.setAttribute('aria-checked', 'true');
+                document.querySelectorAll('.track-btn').forEach(bt => {
+                    bt.className = 'track-btn';
+                    bt.setAttribute('aria-checked', 'false');
+                });
+                btn.classList.add('active-' + d);
+                btn.setAttribute('aria-checked', 'true');
                 diff = d;
                 if (playing) { stop(); start(); }
                 updateUI();
@@ -289,73 +544,76 @@
         });
 
         function updateUI() {
-            const c = MUSIC[diff];
-            trackLabel.textContent = c.label;
-            trackLabel.style.color = diff === 0 ? '#00FFCC' : diff === 1 ? '#A855F7' : '#FF6B35';
-            trackBpm.textContent = c.bpm + ' BPM';
+            const c = BGM_TRACKS[diff];
+            trackLabel.textContent = c.name;
+            trackLabel.style.color = COLORS[diff];
+            trackBpm.textContent = c.sub + ' \\u00B7 ' + c.bpm + ' BPM';
             playBtn.className = 'play-btn' + (playing ? ' playing' : '');
+            if (!playing) trackSec.textContent = '';
+            for (let i = 0; i < vizBars.length; i++) vizBars[i].style.background = COLORS[diff];
         }
 
-        playBtn.addEventListener('click', () => { sound.resume(); playing ? stop() : start(); });
+        playBtn.addEventListener('click', () => {
+            initCtx();
+            if (sound.ctx && sound.ctx.state === 'suspended') sound.ctx.resume().catch(() => {});
+            playing ? stop() : start();
+        });
 
         function start() {
-            playing = true; step = 0; bar = 0; lastStep = performance.now();
-            melA = 0; bassA = 0; chordA = 0; drumA = 0;
-            playBtn.classList.add('playing');
+            initCtx();
+            if (!sound.ctx) return;
+            bsyn.init();
+            bsyn.setTempo(BGM_TRACKS[diff].bpm);
+            playing = true;
+            step = 0;
+            nextT = sound.ctx.currentTime + 0.1;
+            startT = nextT;
             iconPlay.style.display = 'none'; iconPause.style.display = 'block';
             playBtn.setAttribute('aria-label', 'Pause music');
-            updateUI(); tick(performance.now());
+            updateUI();
+            tick();
         }
         function stop() {
-            playing = false; if (rid) cancelAnimationFrame(rid); rid = null;
-            playBtn.classList.remove('playing');
+            playing = false;
+            if (rid) cancelAnimationFrame(rid);
+            rid = null;
             iconPlay.style.display = 'block'; iconPause.style.display = 'none';
             playBtn.setAttribute('aria-label', 'Play music');
-            for (let i = 0; i < vizBars.length; i++) { vizBars[i].style.height = '4px'; vizBars[i].style.opacity = '0.3'; }
+            for (let i = 0; i < vizBars.length; i++) {
+                vizBars[i].style.height = '4px'; vizBars[i].style.opacity = '0.3';
+            }
+            updateUI();
         }
 
-        function tick(now) {
+        function tick() {
             if (!playing) return;
             rid = requestAnimationFrame(tick);
-            const c = MUSIC[diff], sm = 60000 / c.bpm / 4;
-            if (now - lastStep >= sm) {
-                lastStep += sm;
-                if (lastStep < now - sm * 2) lastStep = now;
-                const kick = c.kicks[drumA][step], snare = c.snares[drumA][step], hat = c.hats[drumA][step];
-                const mel = c.melodies[melA][step], bs = c.basses[bassA][step];
-                if (kick) { sound._note(55, 0.09, kick/70, 'sine'); sound._note(42, 0.07, kick/140, 'triangle'); }
-                if (snare) { sound._noise(0.07, snare/80); sound._note(200, 0.04, snare/200, 'sine'); }
-                if (hat) sound._noise(0.022, hat/200);
-                if (step === 0 || step === 8) {
-                    sound._note(CHORDS[chordA], 0.45, 0.055, 'sine');
-                    sound._note(CHORDS[chordA] * 1.5, 0.45, 0.025, 'sine');
-                }
-                if (step === 4 || step === 12) sound._note(CHORDS[chordA] * 1.5, 0.3, 0.035, 'sine');
-                if (bs != null) sound._note(CHORDS[bs] || 110, 0.18, 0.07, 'triangle');
-                if (mel != null) { const f = SCALE[mel % SCALE.length]; if (f) sound._note(f, 0.12, 0.06, 'sawtooth'); }
-                step++;
-                if (step >= 16) {
-                    step = 0; bar++;
-                    if (bar % 4 === 0) chordA = (chordA + 1) % 4;
-                    if (bar % 8 === 0) {
-                        melA = (melA + 1) % c.melodies.length;
-                        bassA = (bassA + 1) % c.basses.length;
-                        drumA = (drumA + 1) % c.kicks.length;
-                    }
-                }
-                for (let i = 0; i < 4; i++) {
-                    const idx = Math.floor(step / 4) * 8 + i * 2;
-                    if (idx < vizBars.length) {
-                        const isK = c.kicks[drumA][step] > 0, isS = c.snares[drumA][step] > 0;
-                        vizBars[idx].style.height = (isK ? 40 + Math.random() * 8 : isS ? 28 + Math.random() * 8 : 12 + Math.random() * 16) + 'px';
-                        vizBars[idx].style.opacity = isK ? '1' : isS ? '0.8' : '0.5';
-                    }
-                }
+            const c = BGM_TRACKS[diff];
+            const sd = 60 / c.bpm / 4;
+            const ct = sound.ctx.currentTime;
+            if (nextT < ct - 0.12) nextT = ct + 0.02;
+            let n = 0;
+            while (nextT < ct + 0.16 && n < 64) {
+                const s = step & 15, b = (step >> 4) % c.loop;
+                try { c.fn({ t: nextT, s: s, b: b, sd: sd }); } catch (_) {}
+                step++; nextT += sd; n++;
+            }
+            const cur = Math.max(0, Math.floor((ct - startT) / sd));
+            const cs = cur & 15, cb = (cur >> 4) % c.loop;
+            const secIdx = Math.min(c.secs.length - 1, cb >> 3);
+            trackSec.textContent = '\\u7B2C ' + (cb + 1) + '/' + c.loop + ' \\u5C0F\\u8282 \\u00B7 ' + c.secs[secIdx];
+            for (let i = 0; i < vizBars.length; i++) {
+                const on = (i % 16) === cs;
+                const strong = cs % 4 === 0;
+                const h = on ? (strong ? 42 : 26) + Math.random() * 6 : Math.max(4, 18 - Math.abs((i % 16) - cs) * 3);
+                vizBars[i].style.height = h + 'px';
+                vizBars[i].style.opacity = on ? '1' : '0.4';
             }
         }
 
-        document.addEventListener('click', () => sound.resume(), { once: true });
-        document.addEventListener('touchstart', () => sound.resume(), { once: true, passive: true });
+        document.addEventListener('click', () => {
+            if (sound.ctx && sound.ctx.state === 'suspended') sound.ctx.resume().catch(() => {});
+        });
         updateUI();
     })();
     </script>

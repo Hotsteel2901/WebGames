@@ -552,149 +552,375 @@
         });
 
         // ============================================================
-        //  BGM MUSIC SYSTEM (per difficulty)
+        //  BGM MUSIC SYSTEM v2 —— 前瞻调度 + 和弦对齐 + 段落演进
+        //  三档难度 = 三首原创：云端巡航 / 霓虹奔跑者 / 过载协议
         // ============================================================
-        const SCALE = [220.00, 261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33];
-        const CHORD_ROOTS = [110.00, 87.31, 130.81, 98.00];
+        const BGM_HZ = m => 440 * Math.pow(2, (m - 69) / 12);
 
-        const MUSIC = [
-            { // Easy
-                bpm: 100,
-                melodies: [
-                    [null,0,null,null, 0,null,null,null, null,1,null,null, 1,null,null,null],
-                    [null,null,2,null, null,1,null,null, null,null,0,null, 0,null,null,null],
-                    [null,1,null,2, null,null,3,null, null,2,null,1, null,0,null,null],
-                ],
-                basses: [
-                    [0,null,null,null, 0,null,null,null, 1,null,null,null, 1,null,null,null],
-                    [2,null,null,null, 2,null,null,null, 3,null,null,null, 3,null,null,null],
-                ],
-                kicks:  [[5,null,null,null, 5,null,null,null, 5,null,null,null, 5,null,3,null]],
-                snares: [[null,null,null,null, 5,null,null,null, null,null,null,null, 5,null,null,null]],
-                hats:   [[3,3,3,3,3,3,3,3, 3,3,3,3,3,3,3,3]],
+        const bsyn = {
+            ready: false,
+            init() {
+                if (this.ready || !sound.ctx) return;
+                const c = sound.ctx;
+                this.bus = c.createGain(); this.bus.gain.value = 0.5;
+                this.bus.connect(sound.masterGain);
+                this.duck = c.createGain(); this.duck.connect(this.bus);
+                this.dl = c.createDelay(1.2);
+                this.fb = c.createGain(); this.fb.gain.value = 0.32;
+                this.dlp = c.createBiquadFilter(); this.dlp.type = 'lowpass'; this.dlp.frequency.value = 3000;
+                const dOut = c.createGain(); dOut.gain.value = 0.5;
+                this.dlIn = c.createGain();
+                this.dlIn.connect(this.dl); this.dl.connect(this.dlp);
+                this.dlp.connect(this.fb); this.fb.connect(this.dl);
+                this.dlp.connect(dOut); dOut.connect(this.bus);
+                this.nb = c.createBuffer(1, c.sampleRate * 0.6, c.sampleRate);
+                const d = this.nb.getChannelData(0);
+                for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+                this.ready = true;
             },
-            { // Normal
-                bpm: 128,
-                melodies: [
-                    [null,0,null,1, null,2,null,null, 0,null,1,null, 2,1,null,0],
-                    [null,null,3,2, null,1,0,null, null,2,null,3, null,4,3,null],
-                    [0,1,null,null, 2,3,null,4, null,3,2,1, 0,null,null,null],
-                    [4,null,3,2, null,1,null,0, null,null,3,2, 1,null,0,null],
-                    [null,2,1,null, 0,null,null,3, 2,null,1,null, 0,3,2,null],
-                    [0,null,null,3, null,2,1,null, 0,null,2,null, 3,4,null,2],
-                ],
-                basses: [
-                    [0,null,null,null, 0,null,null,null, 1,null,null,null, 1,null,null,null],
-                    [2,null,null,null, 2,null,null,null, 3,null,null,null, 3,null,null,null],
-                    [0,null,null,1, 2,null,null,1, 0,null,1,null, 2,null,3,null],
-                ],
-                kicks: [
-                    [7,null,null,null, 7,null,null,4, 7,null,null,5, 7,5,7,null],
-                    [7,null,null,null, 7,null,null,null, 7,null,5,null, 7,5,4,4],
-                    [7,null,null,4, 7,4,5,null, 7,null,5,null, 7,5,4,3],
-                ],
-                snares: [
-                    [null,null,null,null, 7,null,null,3, null,null,null,null, 7,2,null,4],
-                    [null,null,null,3, 7,null,null,null, null,null,null,5, 7,4,4,null],
-                    [null,2,null,null, 7,3,null,4, null,null,5,null, 7,4,6,5],
-                ],
-                hats: [
-                    [4,4,6,4,4,6,4,4, 4,4,6,4,4,6,4,4],
-                    [4,4,6,4,4,6,4,6, 4,4,6,4,4,4,6,6],
-                    [4,6,4,4,6,4,4,6, 4,4,6,6,4,4,6,4],
-                ],
+            setTempo(bpm) { if (this.ready) this.dl.delayTime.value = 0.75 * 60 / bpm; },
+            ok() { return this.ready && sound.bgmEnabled && !soundMuted; },
+            send(node, amt) {
+                const g = sound.ctx.createGain(); g.gain.value = amt;
+                node.connect(g); g.connect(this.dlIn);
             },
-            { // Hard
-                bpm: 145,
-                melodies: [
-                    [0,null,1,2, null,3,2,null, 1,0,null,2, null,3,null,4],
-                    [null,2,null,null, 3,4,3,null, 1,null,2,3, null,1,0,null],
-                    [4,3,null,2, 1,null,0,1, 2,3,null,4, 3,2,1,null],
-                    [0,1,2,3, 4,3,2,1, null,0,2,null, 3,1,0,null],
-                ],
-                basses: [
-                    [0,null,0,null, 1,null,null,1, 2,null,null,null, 3,null,2,null],
-                    [0,null,null,null, 1,null,0,null, 2,null,3,2, 0,null,1,null],
-                ],
-                kicks: [
-                    [7,null,4,5, 7,null,5,null, 7,4,5,null, 7,5,4,5],
-                    [7,4,5,null, 7,5,4,4, 7,null,5,4, 7,5,4,3],
-                ],
-                snares: [
-                    [null,3,null,4, 7,null,5,null, null,4,null,null, 7,5,4,5],
-                    [null,4,5,null, 7,3,4,5, null,4,null,3, 7,6,5,4],
-                ],
-                hats: [
-                    [6,4,6,4,6,6,4,6, 6,4,6,6,4,6,6,4],
-                    [6,6,4,6,6,4,6,6, 6,4,6,6,4,6,4,6],
-                ],
+            kick(t, v) {
+                if (!this.ok() || !v) return; const c = sound.ctx;
+                const o = c.createOscillator(), g = c.createGain();
+                o.type = 'sine';
+                o.frequency.setValueAtTime(150, t);
+                o.frequency.exponentialRampToValueAtTime(44, t + 0.08);
+                g.gain.setValueAtTime(v, t);
+                g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+                o.connect(g); g.connect(this.bus);
+                o.start(t); o.stop(t + 0.24);
+                this.duck.gain.cancelScheduledValues(t);
+                this.duck.gain.setValueAtTime(0.5, t);
+                this.duck.gain.linearRampToValueAtTime(1, t + 0.2);
             },
+            snare(t, v) {
+                if (!this.ok() || !v) return; const c = sound.ctx;
+                const n = c.createBufferSource(); n.buffer = this.nb; n.loop = true;
+                const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1700;
+                const g = c.createGain();
+                g.gain.setValueAtTime(v, t);
+                g.gain.exponentialRampToValueAtTime(0.0001, t + 0.13);
+                n.connect(hp); hp.connect(g); g.connect(this.bus);
+                n.start(t); n.stop(t + 0.15);
+                const o = c.createOscillator(), og = c.createGain();
+                o.type = 'triangle';
+                o.frequency.setValueAtTime(195, t);
+                o.frequency.exponentialRampToValueAtTime(150, t + 0.06);
+                og.gain.setValueAtTime(v * 0.6, t);
+                og.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+                o.connect(og); og.connect(this.bus);
+                o.start(t); o.stop(t + 0.09);
+            },
+            clap(t, v) {
+                if (!this.ok() || !v) return; const c = sound.ctx;
+                for (let i = 0; i < 2; i++) {
+                    const tt = t + i * 0.012;
+                    const n = c.createBufferSource(); n.buffer = this.nb; n.loop = true;
+                    const bp = c.createBiquadFilter(); bp.type = 'bandpass';
+                    bp.frequency.value = 1400; bp.Q.value = 1.1;
+                    const g = c.createGain();
+                    g.gain.setValueAtTime(v * (i ? 1 : 0.5), tt);
+                    g.gain.exponentialRampToValueAtTime(0.0001, tt + (i ? 0.16 : 0.03));
+                    n.connect(bp); bp.connect(g); g.connect(this.bus);
+                    n.start(tt); n.stop(tt + 0.18);
+                }
+            },
+            hat(t, v, open) {
+                if (!this.ok() || !v) return; const c = sound.ctx;
+                const n = c.createBufferSource(); n.buffer = this.nb; n.loop = true;
+                n.playbackRate.value = 1.3;
+                const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 8200;
+                const g = c.createGain(); const d = open ? 0.22 : 0.04;
+                g.gain.setValueAtTime(v, t);
+                g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+                n.connect(hp); hp.connect(g); g.connect(this.bus);
+                n.start(t); n.stop(t + d + 0.02);
+            },
+            crash(t, v) {
+                if (!this.ok() || !v) return; const c = sound.ctx;
+                const n = c.createBufferSource(); n.buffer = this.nb; n.loop = true;
+                const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 5000;
+                const g = c.createGain();
+                g.gain.setValueAtTime(v, t);
+                g.gain.exponentialRampToValueAtTime(0.0001, t + 1.1);
+                n.connect(hp); hp.connect(g); g.connect(this.bus);
+                n.start(t); n.stop(t + 1.15);
+            },
+            sub(t, m, d, v) {
+                if (!this.ok() || !v) return; const c = sound.ctx;
+                const o = c.createOscillator(), g = c.createGain();
+                o.type = 'sine'; o.frequency.value = BGM_HZ(m);
+                g.gain.setValueAtTime(0.0001, t);
+                g.gain.linearRampToValueAtTime(v, t + 0.015);
+                g.gain.setValueAtTime(v, t + Math.max(0.02, d - 0.06));
+                g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+                o.connect(g); g.connect(this.duck);
+                o.start(t); o.stop(t + d + 0.02);
+            },
+            bass(t, m, d, v, acc) {
+                if (!this.ok() || !v) return; const c = sound.ctx;
+                const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 2;
+                lp.frequency.setValueAtTime(acc ? 2300 : 1300, t);
+                lp.frequency.exponentialRampToValueAtTime(240, t + Math.min(0.22, d));
+                const g = c.createGain();
+                g.gain.setValueAtTime(v, t);
+                g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+                const o1 = c.createOscillator(); o1.type = 'sawtooth'; o1.frequency.value = BGM_HZ(m);
+                const o2 = c.createOscillator(); o2.type = 'square'; o2.frequency.value = BGM_HZ(m - 12);
+                const g2 = c.createGain(); g2.gain.value = 0.45;
+                o1.connect(lp); o2.connect(g2); g2.connect(lp);
+                lp.connect(g); g.connect(this.duck);
+                o1.start(t); o2.start(t);
+                o1.stop(t + d + 0.03); o2.stop(t + d + 0.03);
+            },
+            pluck(t, m, d, v) {
+                if (!this.ok() || !v) return; const c = sound.ctx;
+                const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 1;
+                lp.frequency.setValueAtTime(4500, t);
+                lp.frequency.exponentialRampToValueAtTime(380, t + Math.min(0.3, d));
+                const g = c.createGain();
+                g.gain.setValueAtTime(v, t);
+                g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+                const o1 = c.createOscillator(); o1.type = 'triangle'; o1.frequency.value = BGM_HZ(m);
+                const o2 = c.createOscillator(); o2.type = 'sawtooth'; o2.frequency.value = BGM_HZ(m);
+                const g2 = c.createGain(); g2.gain.value = 0.4;
+                o1.connect(lp); o2.connect(g2); g2.connect(lp);
+                lp.connect(g); g.connect(this.duck);
+                this.send(g, 0.16);
+                o1.start(t); o2.start(t);
+                o1.stop(t + d + 0.02); o2.stop(t + d + 0.02);
+            },
+            stab(t, ms, d, v) {
+                if (!this.ok() || !v) return; const c = sound.ctx;
+                const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 1.4;
+                lp.frequency.setValueAtTime(2600, t);
+                lp.frequency.exponentialRampToValueAtTime(500, t + d);
+                const g = c.createGain();
+                g.gain.setValueAtTime(v, t);
+                g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+                ms.forEach(m => {
+                    [-7, 7].forEach(det => {
+                        const o = c.createOscillator(); o.type = 'sawtooth';
+                        o.frequency.value = BGM_HZ(m); o.detune.value = det;
+                        o.connect(lp); o.start(t); o.stop(t + d + 0.02);
+                    });
+                });
+                lp.connect(g); g.connect(this.duck);
+                this.send(g, 0.1);
+            },
+            lead(t, m, d, v, hard) {
+                if (!this.ok() || !v) return; const c = sound.ctx;
+                const lp = c.createBiquadFilter(); lp.type = 'lowpass';
+                lp.frequency.value = hard ? 3600 : 2900; lp.Q.value = 0.8;
+                const g = c.createGain();
+                g.gain.setValueAtTime(0.0001, t);
+                g.gain.linearRampToValueAtTime(v, t + 0.012);
+                g.gain.setValueAtTime(v, t + Math.max(0.02, d - 0.05));
+                g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.08);
+                const vib = c.createOscillator(); vib.frequency.value = 5.4;
+                const vg = c.createGain(); vg.gain.setValueAtTime(0, t);
+                vg.gain.linearRampToValueAtTime(d > 0.3 ? 9 : 4, t + Math.min(0.3, d * 0.6));
+                vib.connect(vg);
+                [-7, 7].forEach(det => {
+                    const o = c.createOscillator(); o.type = 'sawtooth';
+                    o.frequency.value = BGM_HZ(m); o.detune.value = det;
+                    vg.connect(o.detune);
+                    o.connect(lp); o.start(t); o.stop(t + d + 0.1);
+                });
+                vib.start(t); vib.stop(t + d + 0.1);
+                lp.connect(g); g.connect(this.duck);
+                this.send(g, 0.28);
+            },
+            pad(t, ms, d, v) {
+                if (!this.ok() || !v) return; const c = sound.ctx;
+                const lp = c.createBiquadFilter(); lp.type = 'lowpass';
+                lp.frequency.value = 1150; lp.Q.value = 0.5;
+                const g = c.createGain();
+                const att = Math.min(0.6, d * 0.3);
+                g.gain.setValueAtTime(0.0001, t);
+                g.gain.linearRampToValueAtTime(v, t + att);
+                g.gain.setValueAtTime(v, t + Math.max(att, d - 0.2));
+                g.gain.linearRampToValueAtTime(0.0001, t + d + 0.4);
+                ms.forEach(m => {
+                    [-8, 8].forEach(det => {
+                        const o = c.createOscillator(); o.type = 'sawtooth';
+                        o.frequency.value = BGM_HZ(m); o.detune.value = det;
+                        o.connect(lp); o.start(t); o.stop(t + d + 0.45);
+                    });
+                });
+                lp.connect(g); g.connect(this.duck);
+            },
+            riser(t, d, v) {
+                if (!this.ok() || !v) return; const c = sound.ctx;
+                const n = c.createBufferSource(); n.buffer = this.nb; n.loop = true;
+                const hp = c.createBiquadFilter(); hp.type = 'highpass';
+                hp.frequency.setValueAtTime(420, t);
+                hp.frequency.exponentialRampToValueAtTime(5200, t + d);
+                const g = c.createGain();
+                g.gain.setValueAtTime(0.0001, t);
+                g.gain.exponentialRampToValueAtTime(v, t + d);
+                g.gain.linearRampToValueAtTime(0.0001, t + d + 0.05);
+                n.connect(hp); hp.connect(g); g.connect(this.bus);
+                n.start(t); n.stop(t + d + 0.08);
+            }
+        };
+
+        const BGM_TRACKS = [
+            (function() { // Easy · 云端巡航 SKYLINE CRUISE · Am F C G
+                const CH = [[57,60,64],[53,57,60],[60,64,67],[55,59,62]];
+                const RT = [33,29,36,31];
+                const P1 = [[0,76,3],[4,72,2],[6,74,2],[8,72,7],[16,72,3],[20,69,2],[22,67,2],[24,69,7]];
+                const P2 = [[0,67,3],[4,72,2],[6,74,2],[8,76,7],[16,74,3],[20,71,2],[22,67,2],[24,74,7]];
+                const ARP = [0,1,2,1];
+                return { name:'SKYLINE CRUISE 云端巡航', bpm:100, loop:32, fn(e) {
+                    const b=e.b, s=e.s, ci=b%4, ch=CH[ci], sec=b>>3;
+                    if (s===0) bsyn.kick(e.t, 0.4);
+                    if (s===8 && sec>0) bsyn.kick(e.t, 0.34);
+                    if (s===8) bsyn.clap(e.t, 0.15);
+                    if (s%2===0) bsyn.hat(e.t, s%4===0?0.032:0.018);
+                    if (sec>0 && s%4===2) bsyn.hat(e.t, 0.04, true);
+                    if (b%8===7) { if (s===12) bsyn.clap(e.t,0.07); if (s===14) bsyn.clap(e.t,0.09); }
+                    if (s===0) bsyn.sub(e.t, RT[ci], e.sd*10, 0.07);
+                    if (s===0) bsyn.bass(e.t, RT[ci]+12, e.sd*3, 0.05);
+                    if (s===10) bsyn.bass(e.t, RT[ci]+12, e.sd*2, 0.04);
+                    if (s===0) bsyn.pad(e.t, ch.map(x=>x+12), e.sd*15, sec===3?0.034:0.022);
+                    if (s%2===0 && sec!==3) bsyn.pluck(e.t, ch[ARP[(s>>1)&3]]+24, e.sd*1.6, sec===0?0.028:0.034);
+                    if (sec===3 && s===0) bsyn.pluck(e.t, ch[2]+24, e.sd*8, 0.042);
+                    if (sec===1 || sec===2) {
+                        const mel = (ci<2)?P1:P2, pos=(b%2)*16+s;
+                        for (const nt of mel) if (nt[0]===pos) {
+                            bsyn.lead(e.t, nt[1]+(sec===2?12:0), nt[2]*e.sd, sec===2?0.032:0.048);
+                            if (sec===2) bsyn.pluck(e.t, nt[1], nt[2]*e.sd, 0.028);
+                        }
+                    }
+                }};
+            })(),
+            (function() { // Normal · 霓虹奔跑者 NEON RUNNER · Em C G D
+                const CH = [[64,67,71],[60,64,67],[62,67,71],[62,66,69]];
+                const RT = [40,36,43,38];
+                const P1 = [[0,76,3],[6,79,3],[12,76,2],[16,79,3],[22,76,3],[28,72,3]];
+                const P2 = [[0,74,3],[6,79,3],[12,74,2],[16,78,3],[22,74,3],[28,69,3]];
+                const AP = [0,2,1,2];
+                return { name:'NEON RUNNER 霓虹奔跑者', bpm:128, loop:32, fn(e) {
+                    const b=e.b, s=e.s, ci=b%4, ch=CH[ci];
+                    const brk=b>=16&&b<20, bld=b>=20&&b<24, big=b>=24;
+                    if (!brk) { if (s%4===0) bsyn.kick(e.t, 0.44); }
+                    else if (b===16 && s===0) bsyn.kick(e.t, 0.38);
+                    if (!brk && (s===4||s===12)) bsyn.snare(e.t, big?0.19:0.16);
+                    if (!brk && s%4===2) bsyn.hat(e.t, big?0.055:0.04, big&&s===14);
+                    if (!brk && s%2===1 && (big||b>=8)) bsyn.hat(e.t, 0.015);
+                    if (bld && b===23 && s%2===0) bsyn.snare(e.t, 0.09+s*0.008);
+                    else if (!brk && b%8===7 && s>=12 && s%2===0) bsyn.snare(e.t, 0.11);
+                    if (big && b%4===0 && s===0) bsyn.crash(e.t, 0.11);
+                    if (!brk) {
+                        if (s===0) bsyn.sub(e.t, RT[ci]-12, e.sd*3.5, 0.075);
+                        if (s%4===2) bsyn.bass(e.t, RT[ci], e.sd*1.8, 0.08);
+                    } else if (s===0) bsyn.sub(e.t, RT[ci]-12, e.sd*15, 0.065);
+                    if (s%2===(big?0:1)) bsyn.pluck(e.t, ch[AP[(s>>2)&3]]+12, e.sd*1.4, brk?0.028:0.024);
+                    if ((brk||big) && s===0) bsyn.pad(e.t, ch, e.sd*15, brk?0.03:0.018);
+                    if (b===22 && s===0) bsyn.riser(e.t, e.sd*32, 0.05);
+                    if ((b>=8&&b<16) || big) {
+                        const mel = ci<2?P1:P2, pos=(b%2)*16+s;
+                        for (const nt of mel) if (nt[0]===pos) {
+                            bsyn.lead(e.t, nt[1], nt[2]*e.sd, 0.05);
+                            if (big) bsyn.lead(e.t, nt[1]+12, nt[2]*e.sd, 0.018);
+                        }
+                    }
+                }};
+            })(),
+            (function() { // Hard · 过载协议 OVERDRIVE PROTOCOL · Am F G E
+                const CH = [[57,60,64],[53,57,60],[55,59,62],[52,56,59]];
+                const RT = [33,29,31,28];
+                const MEL = [
+                    [[0,81,2],[4,79,2],[6,81,2],[10,84,3]],
+                    [[0,81,2],[4,77,2],[6,79,2],[10,81,3]],
+                    [[0,79,2],[4,83,2],[6,79,2],[10,74,3]],
+                    [[0,80,2],[4,83,2],[6,80,2],[10,76,4]],
+                ];
+                const ACC = [1,0,0,0.6,0,0,1,0, 0,0.6,1,0,0,0.6,0,0];
+                return { name:'OVERDRIVE PROTOCOL 过载协议', bpm:150, loop:32, fn(e) {
+                    const b=e.b, s=e.s, ci=b%4, ch=CH[ci], r=RT[ci];
+                    const half=b>=16&&b<20, bld=b>=20&&b<24, peak=b>=24;
+                    if (half) {
+                        if (s===0) bsyn.kick(e.t, 0.44);
+                        if (s===8) bsyn.snare(e.t, 0.22);
+                        if (s%4===2) bsyn.hat(e.t, 0.045, true);
+                    } else {
+                        if (s%4===0) bsyn.kick(e.t, 0.44);
+                        if (peak && s===14 && b%2===1) bsyn.kick(e.t, 0.28);
+                        if (s===4||s===12) bsyn.snare(e.t, peak?0.21:0.18);
+                        bsyn.hat(e.t, s%2?(peak?0.028:0.016):(s%4===0?0.045:0.03), peak&&s===10);
+                        if (b%4===3 && s>=12) bsyn.snare(e.t, 0.07+(s-12)*0.032);
+                    }
+                    if (bld) {
+                        if (s%2===0) bsyn.snare(e.t, 0.05+(b-20)*0.028+s*0.004);
+                        if (b===20 && s===0) bsyn.riser(e.t, e.sd*64, 0.05);
+                    }
+                    if (s===0 && b%4===0 && (peak||b%8===0)) bsyn.crash(e.t, 0.12);
+                    if (!half) {
+                        const a = ACC[s];
+                        if (a) bsyn.bass(e.t, r+12+(s===6?12:(s===10?7:0)), e.sd*(a===1?1.6:1.1), 0.07*a+0.018, a===1);
+                        if (s===0) bsyn.sub(e.t, r, e.sd*3.5, 0.068);
+                    } else {
+                        if (s===0) { bsyn.sub(e.t, r, e.sd*14, 0.075); bsyn.bass(e.t, r+12, e.sd*12, 0.045); }
+                        if (s===11) bsyn.pluck(e.t, r+25, e.sd*2, 0.038);
+                    }
+                    if (!half && (s===3||s===11)) bsyn.stab(e.t, ch.map(x=>x+12), e.sd*1.5, peak?0.042:0.032);
+                    if ((b>=8&&b<16) || peak) {
+                        for (const nt of MEL[ci]) if (nt[0]===s) {
+                            bsyn.lead(e.t, nt[1], nt[2]*e.sd, 0.05, true);
+                            if (peak) bsyn.lead(e.t, nt[1]-12, nt[2]*e.sd, 0.02, true);
+                        }
+                    }
+                    if (half && s===0) bsyn.pad(e.t, ch, e.sd*15, 0.032);
+                }};
+            })(),
         ];
 
         class BGMPlayer {
             constructor(diff) {
                 this.playing = false;
-                this.step = 0; this.bar = 0; this.lastStepTime = 0;
-                this.melIdx = 0; this.bassA = 0; this.chordIdx = 0; this.drumA = 0;
+                this.step = 0;
+                this.nextT = 0;
                 this.setDifficulty(diff);
             }
             setDifficulty(diff) {
-                this.cfg = MUSIC[diff];
-                this.stepMs = 60000 / this.cfg.bpm / 4;
+                this.cfg = BGM_TRACKS[diff];
+                this.stepDur = 60 / this.cfg.bpm / 4;
+                if (bsyn.ready) bsyn.setTempo(this.cfg.bpm);
             }
             start() {
+                bsyn.init();
+                bsyn.setTempo(this.cfg.bpm);
                 this.playing = true;
-                this.step = 0; this.bar = 0;
-                this.lastStepTime = performance.now();
-                this.melIdx = 0; this.bassA = 0; this.chordIdx = 0; this.drumA = 0;
+                this.step = 0;
+                if (sound.ctx) this.nextT = sound.ctx.currentTime + 0.08;
             }
             stop() { this.playing = false; }
-
-            update(now) {
-                if (!this.playing || soundMuted || !sound.bgmEnabled) return;
-                if (now - this.lastStepTime >= this.stepMs) {
-                    this.lastStepTime += this.stepMs;
-                    if (this.lastStepTime < now - this.stepMs * 2) this.lastStepTime = now;
-                    this._step(this.step);
+            update() {
+                if (!this.playing || !sound.ctx) return;
+                if (soundMuted || !sound.bgmEnabled) {
+                    this.nextT = sound.ctx.currentTime + 0.06;
+                    return;
+                }
+                bsyn.init();
+                const ct = sound.ctx.currentTime;
+                if (this.nextT < ct - 0.12) this.nextT = ct + 0.02;
+                let n = 0;
+                while (this.nextT < ct + 0.16 && n < 64) {
+                    const s = this.step & 15;
+                    const b = (this.step >> 4) % this.cfg.loop;
+                    try {
+                        this.cfg.fn({ t: this.nextT, s: s, b: b, sd: this.stepDur });
+                    } catch (_) {}
                     this.step++;
-                    if (this.step >= 16) {
-                        this.step = 0; this.bar++;
-                        if (this.bar % 4 === 0) this.chordIdx = (this.chordIdx + 1) % 4;
-                        if (this.bar % 8 === 0) {
-                            this.melIdx = (this.melIdx + 1) % this.cfg.melodies.length;
-                            this.bassA = (this.bassA + 1) % this.cfg.basses.length;
-                            this.drumA = (this.drumA + 1) % this.cfg.kicks.length;
-                        }
-                    }
-                }
-            }
-
-            _step(s) {
-                const c = this.cfg;
-                const kick = c.kicks[this.drumA][s];
-                const snare = c.snares[this.drumA][s];
-                const hat = c.hats[this.drumA][s];
-                const mel = c.melodies[this.melIdx][s];
-                const bs = c.basses[this.bassA][s];
-
-                if (kick) { sound.bgmNote(55, 0.09, kick/70, 'sine'); sound.bgmNote(42, 0.07, kick/140, 'triangle'); }
-                if (snare) { sound.bgmNoise(0.07, snare/80); sound.bgmNote(200, 0.04, snare/200, 'sine'); }
-                if (hat) sound.bgmNoise(0.022, hat/200);
-
-                if (s === 0 || s === 8) {
-                    const root = CHORD_ROOTS[this.chordIdx];
-                    sound.bgmNote(root, 0.45, 0.055, 'sine');
-                    sound.bgmNote(root * 1.5, 0.45, 0.025, 'sine');
-                }
-                if (s === 4 || s === 12) {
-                    sound.bgmNote(CHORD_ROOTS[this.chordIdx] * 1.5, 0.3, 0.035, 'sine');
-                }
-                if (bs !== null && bs !== undefined) {
-                    sound.bgmNote(CHORD_ROOTS[bs] || 110, 0.18, 0.07, 'triangle');
-                }
-                if (mel !== null && mel !== undefined) {
-                    const f = SCALE[mel % SCALE.length];
-                    if (f) sound.bgmNote(f, 0.12, 0.06, 'sawtooth');
+                    this.nextT += this.stepDur;
+                    n++;
                 }
             }
         }
