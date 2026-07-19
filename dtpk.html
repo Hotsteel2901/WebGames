@@ -530,6 +530,7 @@ function spawnObs(kind, lane, off, opt={}){
   else o = pget('B', makeBlock);
   o.x = LX[lane]; o.lane = lane;
   o.head = spawnBase - off - (opt.farther||0);
+  o.prev = o.head;
   o.extra = opt.extra || 0;
   o.horned = false;
   o.g.position.set(o.x, 0, o.head);
@@ -898,7 +899,7 @@ const timers = { magnet:0, shoes:0, x2:0, jet:0, board:0 };
 const hero = {
   x: 0, y: 0, vy: 0, lane: 1, targetLane: 1,
   grounded: true, coyote: 0, rolling: false, rollT: 0,
-  jumpQueued: 0, rollQueued: false, dead: false, runT: 0
+  jumpQueued: 0, rollQueued: false, dead: false, runT: 0, transferT: 0
 };
 
 /* ============ HUD ============ */
@@ -1000,9 +1001,10 @@ function chunkTrains(d){
 }
 function chunkBarriers(d){
   const rows = 2 + (d > .25 ? 1 : 0) + (Math.random() < d ? 1 : 0);
-  const sp = 9 - 1.5*d;
+  const sp = 9 + 5*d;                       // 行距随速度拉开，滞空不会直接撞进下一行
   const blocked = movingLaneBlocked();
   let golden = irnd(0,2);
+  let prevKinds = null;
   for(let r=0;r<rows;r++){
     const off = r*sp;
     golden = clamp(golden + irnd(-1,1), 0, 2);
@@ -1015,11 +1017,17 @@ function chunkBarriers(d){
     if(kinds[golden] === 'block') kinds[golden] = Math.random() < .5 ? 'hurdle' : 'over';
     if(!kinds.some(k => k !== 'block')) kinds[1] = 'hurdle';
     for(let ln=0;ln<3;ln++){
+      // 跳过栏架后仍在空中时，同车道紧接的下一行不允许出现须下滑/无法通过的障碍
+      if(prevKinds && prevKinds[ln] === 'hurdle' && (kinds[ln] === 'over' || kinds[ln] === 'block'))
+        kinds[ln] = Math.random() < .5 ? 'hurdle' : 'none';
+    }
+    for(let ln=0;ln<3;ln++){
       const k = kinds[ln];
       if(k === 'none'){ if(Math.random() < .6) coinLine(ln, off-1.5, 3); continue; }
       spawnObs(k, ln, off);
       if(k === 'hurdle' && Math.random() < .6) coinArc(ln, off);
     }
+    prevKinds = kinds;
   }
   const L = rows*sp + 4;
   maybePickup(irnd(0,2), L + 1);
@@ -1036,15 +1044,21 @@ function chunkMixed(d){
     L = Math.max(L, off + o.len + 4);
   }
   let flip = Math.random() < .5;
-  for(const off of [5, 13, 21]){
+  const lastK = {};
+  let maxOff = 0;
+  for(const off0 of [5, 13, 21]){
+    const off = 5 + (off0 - 5) * (1 + 0.7*d);   // 高速时拉开间距
     const ln = flip ? lanes[1] : lanes[2]; flip = !flip;
     if(blocked.has(ln)) continue;
-    const k = Math.random() < .55 ? 'hurdle' : 'over';
+    let k = Math.random() < .55 ? 'hurdle' : 'over';
+    if(lastK[ln] === 'hurdle' && k === 'over') k = 'hurdle';   // 防滞空撞牌
+    lastK[ln] = k;
     spawnObs(k, ln, off);
+    maxOff = Math.max(maxOff, off);
     if(k === 'hurdle' && Math.random() < .5) coinArc(ln, off);
     else coinLine(ln, off + 2.5, 3);
   }
-  return L + 3;
+  return Math.max(L, maxOff + 7) + 3;
 }
 function chunkCoins(d){
   let ln = irnd(0,2), off = 0;
@@ -1070,14 +1084,19 @@ function chunkMoving(d){
   const ln = free[irnd(0, free.length-1)];
   spawnObs('train', ln, 0, { wagons: 3, extra: 13 + 10*d, farther: 55 });
   const others = [0,1,2].filter(l => l !== ln && !blocked.has(l));
-  for(const off of [6, 16]){
+  const lastK = {};
+  for(const off0 of [6, 16]){
     if(others.length && Math.random() < .75){
+      const off = off0 === 6 ? 6 : 16 + 8*d;
       const l2 = others[irnd(0, others.length-1)];
-      spawnObs(Math.random() < .6 ? 'hurdle' : 'over', l2, off);
+      let k = Math.random() < .6 ? 'hurdle' : 'over';
+      if(lastK[l2] === 'hurdle' && k === 'over') k = 'hurdle';
+      lastK[l2] = k;
+      spawnObs(k, l2, off);
     }
   }
   if(others.length) coinLine(others[0], 3, 6);
-  return 26;
+  return 26 + 8*d;
 }
 function spawnChunk(){
   const d = Math.min(1, dist/2400);
@@ -1092,15 +1111,15 @@ function spawnChunk(){
 }
 
 /* ============ 物理 / 碰撞 ============ */
-function groundAt(x){
+function groundAt(x, yRef){
   let g = 0;
   for(const o of obs){
     if(!o.walk) continue;
-    if(Math.abs(x - o.x) > o.halfW + 0.05) continue;
+    if(Math.abs(x - o.x) > o.halfW + 0.13) continue;   // 支撑区加宽：相邻车顶间无真空带
     if(o.head < -0.35 || o.head - o.len > 0.4) continue;
     let h = o.h;
     if(o.rampLen && o.head < o.rampLen) h = o.h * (o.head / o.rampLen);
-    if(h > g) g = h;
+    if(h > g && (yRef === undefined || h <= yRef + 0.9)) g = h;   // 只认脚下容差内的面，防止在车体内"悬空"
   }
   return g;
 }
@@ -1109,8 +1128,10 @@ function collide(){
   const px = hero.x, py = hero.y;
   for(const o of obs){
     const dx = Math.abs(px - o.x);
-    if(dx > o.halfW + 0.38) continue;
-    if(o.head < -0.35 || o.head - o.len > 0.35) continue;
+    if(dx > o.halfW + 0.34) continue;
+    // 扫掠窗口：本帧扫过 [-0.1, len+0.15] 才判定（贴近可见接触，且防高速穿透）
+    const pv = (o.prev === undefined ? o.head : o.prev);
+    if(o.head < -0.1 || pv - o.len > 0.15) continue;
     if(o.walk){
       let top = o.h;
       if(o.rampLen && o.head < o.rampLen) top = o.h * (o.head / o.rampLen);
@@ -1145,20 +1166,40 @@ function overlappingSolid(){
 }
 function hitSolid(o, frontal, dx){
   if(timers.board > 0){ boardCrash(o); return; }
-  if(o.extra){ die('train'); return; }
-  const grazing = dx > o.halfW - 0.18;
+  const grazing = dx > o.halfW - 0.22;
+  if(o.rampLen && o.head < o.rampLen + 0.8) frontal = false;   // 坡道区域不算正面撞击
+  if(o.extra){
+    if(!frontal && grazing){ stumble(o); return; }             // 移动列车：侧面轻擦→踉跄
+    die('train'); return;
+  }
   if(frontal && !grazing){ die('hit'); return; }
-  if(guardCloseT > 0){ die('caught'); return; }
+  if(guardCloseT > 0 && !grazing){ die('caught'); return; }    // 蹭边不再被直接抓住
   stumble(o);
+}
+function laneSafeFor(ln, ignore){
+  for(const q of obs){
+    if(q === ignore) continue;
+    if(Math.abs(LX[ln] - q.x) > q.halfW + 0.3) continue;
+    if(q.head < -1.5 || q.head - q.len > 7) continue;          // 只看身前一小段
+    if(q.walk && hero.y >= q.h - 0.45) continue;               // 已站在其顶上则安全
+    return false;
+  }
+  return true;
 }
 function stumble(o){
   guardCloseT = 6; stumbleT = 0.6; speedDip = 0.4; shake = 0.35;
+  invulnT = Math.max(invulnT, 0.8);                            // 踉跄保护帧：防止被弹进旁边障碍连环死
   sfx('stumble'); sfx('bark');
   flashScreen(0.5);
   emit(hero.x, hero.y + 1, 0, 0xcccccc, 6, 2, 3);
   const dir = Math.sign(hero.x - o.x) || (hero.lane === 0 ? 1 : -1);
   let ln = clamp(hero.lane + dir, 0, 2);
-  if(Math.abs(LX[ln] - o.x) < o.halfW + 0.3) ln = clamp(hero.lane - dir, 0, 2);
+  const bad = l => Math.abs(LX[l] - o.x) < o.halfW + 0.3 || !laneSafeFor(l, o);
+  if(bad(ln)){
+    const alt = clamp(hero.lane - dir, 0, 2);
+    if(!bad(alt)) ln = alt;
+    else ln = hero.lane;                                       // 两侧都危险：原地踉跄，靠保护帧脱身
+  }
   hero.lane = hero.targetLane = ln;
   hero.x = lerp(hero.x, LX[ln], 0.55);
   toast('小心！督察追上来了！');
@@ -1168,6 +1209,18 @@ function boardCrash(o){
   guardCloseT = 0;
   sfx('hit'); shake = 0.5; flashScreen(0.6);
   emit(hero.x, hero.y + 0.4, 0, 0x40e0ff, 14, 4, 5);
+  if(o && o.walk && hero.y < o.h - 0.4){
+    // 撞进车体时滑板把人弹到相邻安全车道，而不是留在车厢里
+    const dir = Math.sign(hero.x - o.x) || (hero.lane === 0 ? 1 : -1);
+    let ln = clamp(hero.lane + dir, 0, 2);
+    const bad = l => Math.abs(LX[l] - o.x) < o.halfW + 0.3 || !laneSafeFor(l, o);
+    if(bad(ln)){
+      const alt = clamp(hero.lane - dir, 0, 2);
+      if(!bad(alt)) ln = alt;
+    }
+    hero.lane = hero.targetLane = ln;
+    hero.x = lerp(hero.x, LX[ln], 0.6);
+  }
   toast('滑板保护了你！');
 }
 function die(reason){
@@ -1300,7 +1353,7 @@ function reset(){
   Object.assign(hero, {
     x: 0, y: 0, vy: 0, lane: 1, targetLane: 1,
     grounded: true, coyote: 0, rolling: false, rollT: 0,
-    jumpQueued: 0, rollQueued: false, dead: false, runT: 0
+    jumpQueued: 0, rollQueued: false, dead: false, runT: 0, transferT: 0
   });
   spawnBase = -70;
   while(spawnBase > SPAWN) spawnBase -= spawnChunk();
@@ -1468,6 +1521,7 @@ function update(dt){
 
     for(let i=obs.length-1;i>=0;i--){
       const o = obs[i];
+      o.prev = o.head;
       o.head += ds + (o.extra ? o.extra*dt : 0);
       o.g.position.z = o.head;
       if(o.extra && !o.horned && o.head > -75){ o.horned = true; sfx('horn'); }
@@ -1496,7 +1550,7 @@ function update(dt){
     const tx = LX[hero.targetLane];
     hero.x += (tx - hero.x) * Math.min(1, 12*dt);
 
-    const g = groundAt(hero.x);
+    const g = groundAt(hero.x, hero.y);
     if(timers.jet > 0){
       hero.y += (7.6 - hero.y) * Math.min(1, 6*dt);
       hero.vy = 0; hero.grounded = false;
@@ -1509,6 +1563,7 @@ function update(dt){
       if(Math.random() < .8) emit(hero.x, hero.y + 0.9, 0.4, 0xffa030, 1, 1, -1);
     } else {
       if(hero.grounded){
+        hero.transferT = 0.25;                      // 刚离开支撑面的横移宽限期
         if(g < hero.y - 0.02){
           hero.grounded = false; hero.coyote = 0.12; hero.vy = 0;
         } else if(g - hero.y <= 0.9){
@@ -1517,9 +1572,11 @@ function update(dt){
       }
       if(!hero.grounded){
         hero.coyote -= dt;
+        if(hero.transferT > 0) hero.transferT -= dt;
         hero.vy += GRAV * dt;
         const ny = hero.y + hero.vy * dt;
-        if(hero.vy <= 0 && hero.y >= g - 0.001 && ny <= g){
+        // 落地：从上方落下，或横移宽限期内贴着新车顶（≤0.75）向上吸附
+        if(hero.vy <= 0 && ny <= g && (hero.y >= g - 0.001 || (hero.transferT > 0 && g - hero.y <= 0.75))){
           const fallV = hero.vy;
           hero.y = g; hero.vy = 0; hero.grounded = true;
           if(fallV < -9){ sfx('land'); emit(hero.x, g + 0.05, 0, 0xd8d8d8, 5, 2, 2.5); }
@@ -1631,8 +1688,8 @@ function update(dt){
   heroRig.root.rotation.y = (mode === 'menu') ? Math.PI : (LX[hero.targetLane] - hero.x) * -0.1;
   if(invulnT > 0 && !hero.dead) heroRig.root.visible = Math.sin(elapsed*24) > -0.4;
   else heroRig.root.visible = true;
-  heroShadow.position.set(hero.x, groundAt(hero.x) + 0.02, 0);
-  const shScale = clamp(1 - (hero.y - groundAt(hero.x))/7, 0.25, 1);
+  heroShadow.position.set(hero.x, groundAt(hero.x, hero.y) + 0.02, 0);
+  const shScale = clamp(1 - (hero.y - groundAt(hero.x, hero.y))/7, 0.25, 1);
   heroShadow.scale.set(shScale, 1, shScale);
 
   /* ---- 督察 & 狗 ---- */
@@ -1687,7 +1744,7 @@ camera.position.set(0, 3, 6.4);
 camera.lookAt(0, 1.3, 0);
 
 renderer.setAnimationLoop(now => {
-  const dt = Math.min(0.05, (now - last)/1000 || 0.016);
+  const dt = Math.min(0.04, (now - last)/1000 || 0.016);
   last = now;
   fpsAcc += dt; fpsN++; fpsT += dt;
   if(fpsT > 2 && !prCut){
