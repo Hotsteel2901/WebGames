@@ -1599,7 +1599,7 @@ function setMode(m){
     /* 离开旁观：若卡在方块里往上顶 */
     let guard=0;
     while(boxCollides(player.x,player.y,player.z)&&guard++<80) player.y+=1;
-    if(mode==='survival'){ player.fly=false; player.vy=Math.min(player.vy,0); fallDist=0; }
+    if(mode==='survival'){ player.fly=false; player.vy=Math.min(player.vy,0); fallDist=player.y; }
   }
   applyModeClass();
   toast({creative:'创造模式：无限方块 · 双击空格飞行',survival:'生存模式：小心夜晚的怪物！',spectator:'旁观者模式：穿墙飞行 · 不可交互'}[mode]);
@@ -2106,7 +2106,7 @@ function diePlayer(){
   drawHearts();
 }
 function respawn(){
-  playerDead=false; hp=20; lastHurtT=99; fallDist=0;
+  playerDead=false; hp=20; lastHurtT=99; fallDist=player.y;
   player.y=SY;
   let sy=SY-2; while(sy>1&&!solidAt(SX/2,sy-1,SZ/2)) sy--;
   player.x=SX/2+.5; player.y=sy+.5; player.z=SZ/2+.5;
@@ -2270,13 +2270,17 @@ updatePlayer=(function(_orig){
     if(mode==='survival'&&player.fly){ player.fly=false; updateFlyBtns(); }
     _orig.call(null,dt);
     if(mode==='survival'&&!player.fly){
-      /* 掉落伤害 */
       if(player.onGround){
-        if(fallDist>3.2){ damagePlayer(Math.floor((fallDist-3)*1.3),0,0);
-          sTone(160,.15,'square',.07,120); }
-        fallDist=0;
-      } else fallDist=Math.max(fallDist,player.y-fallDist*0);
-      if(!player.onGround){ if(player.y>fallDist+50) fallDist=Math.max(fallDist,player.y+0); }
+        if(fallDist - player.y > 3.2){
+          damagePlayer(Math.floor((fallDist - player.y - 3) * 1.3), 0, 0);
+          sTone(160,.15,'square',.07,120);
+        }
+        fallDist = player.y;
+      } else if(!player.inWater){
+        fallDist = Math.max(fallDist, player.y);
+      } else {
+        fallDist = player.y;
+      }
     }
   };
 })(updatePlayer);
