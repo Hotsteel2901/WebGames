@@ -1669,7 +1669,7 @@ function dropFromBlock(id,x,y,z,center){
   else if(D.drop===undefined) key='b'+id;
   else if(D.drop.b!==undefined) key='b'+D.drop.b;
   else key='i'+D.drop.i;
-  if(key) spawnDrop(key,1,x+.5,y+.3,z+.5);
+  if(key) spawnDrop(key,1,x+.5,y+1.0+.3,z+.5);
 }
 
 /* ---------- 覆盖：放置 / 进食 ---------- */
@@ -1901,6 +1901,11 @@ loadWorld=function(){
 
 /* ---------- 掉落物 ---------- */
 let DROPS=[];
+function groundBelow(x,z){
+  const ix=Math.floor(clamp(x,0,SX-1)), iz=Math.floor(clamp(z,0,SZ-1));
+  const top=colTop[iz*SX+ix];
+  return Math.max(0, top + 1);
+}
 function spawnDrop(key,n, x,y,z){
   const ikey='d'+key;
   const existing=DROPS.find(d=>d.key===key&&Math.hypot(d.x-x,d.y-y,d.z-z)<1.2);
@@ -2158,7 +2163,7 @@ function spawnTick(dt){
       const ix=Math.round(clamp(x,6,SX-6)), iz=Math.round(clamp(z,6,SZ-6));
       let sy=SY-2; while(sy>1&&!solidAt(ix,sy-1,iz)) sy--;
       const top=getB(ix,sy,iz);
-      if(top===B.GRASS) spawnMob(Math.random()<.5?'pig':'sheep',ix+.5,sy+.5,iz+.5);
+      if(top===B.GRASS) spawnMob(Math.random()<.5?'pig':'sheep',ix+.5,sy+1,iz+.5);
     }
   }
   /* 敌怪 */
@@ -2176,7 +2181,7 @@ function spawnTick(dt){
   const rnd=Math.random();
   const type=rnd<.38?'zombie':rnd<.7?'creeper':rnd<.95?'spider':'zombie';
   if(!MOB_DEFS[type]) return;
-  spawnMob(type,ix+.5,sy+.5,iz+.5);
+  spawnMob(type,ix+.5,sy+1,iz+.5);
 }
 
 /* 战斗射线 vs 生物 */
@@ -2299,7 +2304,8 @@ function _postFrame(dt){
     d.t+=dt;
     if(d.t>60){ DROPS.splice(i,1); continue; }
     d.vy-=8*dt; d.y+=d.vy*dt; d.x+=d.vx*dt; d.z+=d.vz*dt;
-    if(d.y<.2){ d.y=.2; d.vy=0; }
+    const surf = groundBelow(d.x,d.z);
+    if(d.y < surf + 0.35){ d.y = surf + 0.35; d.vy = 0; }
     d.vx*=0.94; d.vz*=0.94; d.vy*=0.94;
     const dist=Math.hypot(player.x-d.x,player.y+PLAYER.eye-d.y,player.z-d.z);
     if(dist<2.2&&d.t>.5){
@@ -2353,7 +2359,7 @@ function _postFrame(dt){
         const x=10+Math.random()*(SX-20), z=10+Math.random()*(SZ-20);
         const ix=Math.round(x), iz=Math.round(z);
         let sy=SY-2; while(sy>1&&!solidAt(ix,sy-1,iz)) sy--;
-        if(getB(ix,sy,iz)===B.GRASS) spawnMob(Math.random()<.5?'pig':'sheep',ix+.5,sy+.5,iz+.5);
+        if(getB(ix,sy,iz)===B.GRASS) spawnMob(Math.random()<.5?'pig':'sheep',ix+.5,sy+1,iz+.5);
       }
     },200);
   };
